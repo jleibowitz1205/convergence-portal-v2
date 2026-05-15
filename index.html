@@ -3404,12 +3404,12 @@ const DateRangeDropdown = ({ pos, filter, onClose, onApply }) => {
 
 // ─── DEFAULT WIDGET LAYOUT (shared constant) ──────────────────────────────────
 const DEFAULT_WIDGET_LAYOUT = [
-  { id: 'kpi-grid',    label: 'KPI Cards',         colSpan: 12, rowSpan: 3 },
-  { id: 'leads-chart', label: 'Leads & Sales',      colSpan: 8,  rowSpan: 5 },
-  { id: 'traffic',     label: 'Traffic Sources',    colSpan: 4,  rowSpan: 5 },
-  { id: 'inventory',   label: 'Inventory by Make',  colSpan: 8,  rowSpan: 5 },
-  { id: 'service',     label: 'Service Orders',     colSpan: 4,  rowSpan: 5 },
-  { id: 'leads-table', label: 'Recent Leads',       colSpan: 12, rowSpan: 5 },
+  { id: 'kpi-grid',    label: 'KPI Cards',         colSpan: 12, rowSpan: 3, type: 'builtin' },
+  { id: 'leads-chart', label: 'Leads & Sales',      colSpan: 8,  rowSpan: 5, type: 'builtin' },
+  { id: 'traffic',     label: 'Traffic Sources',    colSpan: 4,  rowSpan: 5, type: 'builtin' },
+  { id: 'inventory',   label: 'Inventory by Make',  colSpan: 8,  rowSpan: 5, type: 'builtin' },
+  { id: 'service',     label: 'Service Orders',     colSpan: 4,  rowSpan: 5, type: 'builtin' },
+  { id: 'leads-table', label: 'Recent Leads',       colSpan: 12, rowSpan: 5, type: 'builtin' },
 ];
 
 // ─── WIDGET SHELL: ResizeObserver-powered responsive wrapper ─────────────────
@@ -3491,7 +3491,6 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
   const chartStyle = tweaks?.chartStyle || 'filled';
   const linkedReport = dashboard?.report || null;
   const [showAddChart, setShowAddChart] = useState(false);
-  const [addedReports, setAddedReports] = useState([]);
   const [selectedAddId, setSelectedAddId] = useState('');
 
   // Filter state
@@ -3637,7 +3636,8 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
     setActiveFilters(prev => prev.map(f => f.id === updated.id ? updated : f));
   };
 
-  // All reports on this dashboard (linked + added)
+  // All reports on this dashboard (linked + any added via widgetLayout)
+  const addedReports = widgetLayout.filter(w => w.type === 'report').map(w => w.report);
   const allDashReports = [
     ...(linkedReport ? [linkedReport] : []),
     ...addedReports,
@@ -3817,7 +3817,15 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
                     onClick={() => {
                       if (!selectedAddId) return;
                       const r = savedReports.find(r => String(r.id) === selectedAddId);
-                      if (r) { setAddedReports(prev => [r, ...prev]); setSelectedAddId(''); setShowAddChart(false); }
+                      if (r) {
+                        const widgetId = `report-${r.id}-${Date.now()}`;
+                        setWidgetLayout(prev => [
+                          ...prev,
+                          { id: widgetId, label: r.name, colSpan: 6, rowSpan: 5, type: 'report', report: r },
+                        ]);
+                        setSelectedAddId('');
+                        setShowAddChart(false);
+                      }
                     }}
                   >
                     Add This Report
@@ -3965,69 +3973,17 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
 
       <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
         <div className="page-body" style={{flex:1}}>
-        {/* Linked report banner */}
-        {linkedReport && (
-          <div style={{marginBottom:'var(--space-lg)'}}>
-            <div className="section-header" style={{marginBottom:'var(--space-md)'}}>
-              <div>
-                <div className="section-title">{linkedReport.name}</div>
-                <div className="section-subtitle">{linkedReport.desc}</div>
-              </div>
-              <button className="btn btn-ghost" style={{fontSize:'12px'}} onClick={() => navigate('questions')}>
-                <Icon name="edit" size={13}/>Edit Report
-              </button>
-            </div>
-            <div className="card chart-card">
-              <div className="chart-header">
-                <div>
-                  <div className="chart-title">{linkedReport.name}</div>
-                  <div className="chart-subtitle">{linkedReport.desc}</div>
-                </div>
-                <div className="chart-actions">
-                  <button className="chart-action-btn"><Icon name="download" size={12}/></button>
-                  <button className="chart-action-btn"><Icon name="more" size={12}/></button>
-                </div>
-              </div>
-              <MiniReportChart report={linkedReport} chartStyle={chartStyle}/>
 
-            </div>
+        {/* Edit mode banner */}
+        {editMode && (
+          <div className="edit-mode-banner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+            </svg>
+            Layout editing active — drag widgets to reorder, pull the corner handle to resize.
+            <span>Snaps to a 12-column grid.</span>
           </div>
         )}
-
-        {/* Additional added reports */}
-        {addedReports.length > 0 && (
-          <div style={{marginBottom:'var(--space-lg)'}}>
-            {addedReports.map((r, i) => (
-              <div key={r.id + '-' + i} style={{marginBottom:'var(--space-md)'}}>
-                <div className="section-header" style={{marginBottom:'var(--space-sm)'}}>
-                  <div>
-                    <div className="section-title" style={{fontSize:'14px'}}>{r.name}</div>
-                    <div className="section-subtitle">{r.desc}</div>
-                  </div>
-                  <button className="btn btn-icon" style={{color:'var(--text-tertiary)'}} onClick={() => setAddedReports(prev => prev.filter((_,j) => j !== i))}>
-                    <Icon name="close" size={13}/>
-                  </button>
-                </div>
-                <div className="card chart-card">
-                  <MiniReportChart report={r} chartStyle={chartStyle}/>
-
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!dashboard?.userCreated && (<>
-          {/* Edit mode banner */}
-          {editMode && (
-            <div className="edit-mode-banner">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
-              </svg>
-              Layout editing active — drag widgets to reorder, pull the corner handle to resize.
-              <span>Snaps to a 12-column grid.</span>
-            </div>
-          )}
 
           {/* WIDGET GRID CANVAS */}
           <div className={`dashboard-edit-canvas${editMode ? ' edit-active' : ''}`} style={{marginBottom:'var(--space-lg)'}}>
@@ -4262,6 +4218,30 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
                         </>);
                       }
 
+                      // ── USER-ADDED REPORT ──
+                      if (widget.type === 'report' && widget.report) {
+                        const r = widget.report;
+                        return (<>
+                          <div className="widget-chart-header chart-header" style={{padding:headerPad,flexShrink:0}}>
+                            <div style={{minWidth:0,flex:1}}>
+                              <div className="chart-title" style={{fontSize: sizeClass==='sz-large'?'14px':'12.5px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.name}</div>
+                              {!isShort && r.desc && <div className="widget-subtitle chart-subtitle" style={{fontSize:'11px',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.desc}</div>}
+                            </div>
+                            <div className="chart-actions" style={{flexShrink:0,marginLeft:8,display:'flex',gap:4}}>
+                              {!isNarrow && <button className="chart-action-btn" title="Edit report" onClick={()=>navigate('questions')}><Icon name="edit" size={12}/></button>}
+                              <button className="chart-action-btn" title="Remove from dashboard" style={{color:'var(--danger)'}}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); setWidgetLayout(prev => prev.filter(w => w.id !== widget.id)); }}>
+                                <Icon name="close" size={12}/>
+                              </button>
+                            </div>
+                          </div>
+                          <div style={{flex:1,minHeight:0,overflow:'hidden'}}>
+                            <MiniReportChart report={r} chartStyle={chartStyle}/>
+                          </div>
+                        </>);
+                      }
+
                       return null;
                     }}
                   </WidgetShell>
@@ -4284,10 +4264,9 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
               </div>
             );
           })()}
-        </>)}
 
-        {/* Blank canvas empty state */}
-        {dashboard?.userCreated && !linkedReport && addedReports.length === 0 && (
+        {/* Empty state for user-created dashboards with no widgets yet */}
+        {widgetLayout.length === 0 && (
           <div className="empty-state" style={{flex:1,paddingTop:80}}>
             <div style={{width:56,height:56,borderRadius:'var(--radius-lg)',background:'var(--accent-light)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:'var(--space-sm)'}}>
               <Icon name="chart" size={24} style={{color:'var(--accent)'}}/>
@@ -6366,9 +6345,23 @@ const App = () => {
     } catch { return {}; }
   });
 
-  // Derive the layout for the currently active dashboard
+  // Derive the layout for the currently active dashboard.
+  // For user-created dashboards with a linked report that haven't been laid out yet,
+  // seed the layout with that report as a widget so it enters the grid system.
   const dashKey = activeDashboard?.id ?? 'default';
-  const activeWidgetLayout = widgetLayouts[dashKey] ?? DEFAULT_WIDGET_LAYOUT;
+  const activeWidgetLayout = React.useMemo(() => {
+    const stored = widgetLayouts[dashKey];
+    if (stored) return stored;
+    // No saved layout — build the default
+    if (activeDashboard?.userCreated) {
+      const linkedReport = activeDashboard?.report;
+      if (linkedReport) {
+        return [{ id: `report-${linkedReport.id}`, label: linkedReport.name, colSpan: 12, rowSpan: 6, type: 'report', report: linkedReport }];
+      }
+      return []; // blank user dashboard
+    }
+    return DEFAULT_WIDGET_LAYOUT; // built-in Sales Performance dashboard
+  }, [widgetLayouts, dashKey, activeDashboard]);
 
   const handleWidgetLayoutChange = useCallback((updater) => {
     setWidgetLayouts(prev => {
