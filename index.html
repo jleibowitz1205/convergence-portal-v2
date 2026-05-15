@@ -667,52 +667,99 @@
     z-index: 1;
   }
   .dashboard-widget.edit-mode {
-    cursor: grab;
-    transition: box-shadow 0.15s, transform 0.12s;
+    cursor: default;
+    transition: box-shadow 0.15s, transform 0.12s, opacity 0.15s;
   }
   .dashboard-widget.edit-mode:hover {
     box-shadow: 0 0 0 2px var(--accent), 0 6px 24px rgba(94,16,188,0.16);
-    transform: translateY(-1px);
     z-index: 10;
   }
-  .dashboard-widget.edit-mode:active,
-  .dashboard-widget.edit-mode.dragging {
-    cursor: grabbing;
-    opacity: 0.85;
-    box-shadow: 0 0 0 2px var(--accent), 0 12px 40px rgba(94,16,188,0.22);
-    transform: translateY(-3px) scale(1.01);
-    z-index: 20;
+  /* Widget being dragged — stays in grid as a ghost placeholder */
+  .dashboard-widget.is-dragging-source {
+    opacity: 0.35;
+    box-shadow: 0 0 0 2px var(--accent) !important;
+    pointer-events: none;
   }
-  .dashboard-widget.edit-mode.drag-over {
-    box-shadow: 0 0 0 2px var(--brand-neon), 0 6px 20px rgba(128,229,92,0.18);
+  /* Drop-zone slot: shown between/around widgets in edit mode */
+  .drop-slot {
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: 2px dashed transparent;
+    transition: background 0.12s, border-color 0.12s;
+    cursor: default;
+    position: relative;
+    z-index: 5;
   }
-  /* Drag handle badge shown in edit mode */
-  .widget-drag-handle {
-    display: none;
+  .drop-slot.slot-active {
+    background: rgba(94,16,188,0.07);
+    border-color: rgba(94,16,188,0.35);
+  }
+  .drop-slot.slot-hover {
+    background: rgba(94,16,188,0.13);
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  /* Floating drag-preview card */
+  .drag-preview-card {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    background: var(--card-bg);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(94,16,188,0.28), 0 4px 16px rgba(0,0,0,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: var(--font-subheading);
+    padding: 12px 20px;
+    transition: box-shadow 0.1s;
+    white-space: nowrap;
+    opacity: 0.96;
+    backdrop-filter: blur(4px);
+  }
+  /* Drag handle area at top of each widget in edit mode */
+  .widget-drag-zone {
     position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 0; left: 0; right: 0;
+    height: 36px;
+    cursor: grab;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transition: background 0.15s;
+  }
+  .widget-drag-zone:hover {
+    background: rgba(94,16,188,0.06);
+  }
+  .widget-drag-zone:active { cursor: grabbing; }
+  .widget-drag-zone-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     background: var(--accent);
     color: white;
     border-radius: 20px;
-    padding: 2px 10px;
+    padding: 3px 10px;
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    gap: 4px;
-    align-items: center;
-    z-index: 30;
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: opacity 0.15s, transform 0.15s;
     pointer-events: none;
-    white-space: nowrap;
     box-shadow: 0 2px 8px rgba(94,16,188,0.25);
-    animation: fadeInDown 0.15s ease;
   }
-  .edit-mode .widget-drag-handle { display: flex; }
-  @keyframes fadeInDown {
-    from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .widget-drag-zone:hover .widget-drag-zone-pill {
+    opacity: 1;
+    transform: translateY(0);
   }
   /* Resize handle — bottom-right corner */
   .widget-resize-handle {
@@ -3416,14 +3463,7 @@ const DEFAULT_WIDGET_LAYOUT = [
 ];
 
 // ─── WIDGET SHELL: ResizeObserver-powered responsive wrapper ─────────────────
-// Measures actual pixel dimensions of each widget and applies a size class:
-//   sz-tiny  : w < 200 OR h < 120
-//   sz-small : w < 340 OR h < 180
-//   sz-medium: w < 560 OR h < 280   (default, no extra class)
-//   sz-large : w >= 560 AND h >= 280
-// Children receive { w, h, sizeClass } via render-prop so they can also
-// adapt their internal layout (e.g. chart height, KPI columns).
-const WidgetShell = ({ editMode, isDragging, isOver, widget, handleDragStart, handleDragOver, handleDrop, handleDragEnd, handleResizeMouseDown, children }) => {
+const WidgetShell = ({ editMode, isDragging, widget, handleDragPointerDown, handleDragPointerMove, handleDragPointerUp, handleResizeMouseDown, children }) => {
   const ref = React.useRef(null);
   const [dims, setDims] = React.useState({ w: 9999, h: 9999 });
 
@@ -3448,7 +3488,7 @@ const WidgetShell = ({ editMode, isDragging, isOver, widget, handleDragStart, ha
   return (
     <div
       ref={ref}
-      className={`card chart-card dashboard-widget ${sizeClass}${editMode ? ' edit-mode' : ''}${isDragging ? ' dragging' : ''}${isOver ? ' drag-over' : ''}`}
+      className={`card chart-card dashboard-widget ${sizeClass}${editMode ? ' edit-mode' : ''}${isDragging ? ' is-dragging-source' : ''}`}
       style={{
         gridColumn: `span ${widget.colSpan}`,
         gridRow: `span ${widget.rowSpan}`,
@@ -3457,21 +3497,27 @@ const WidgetShell = ({ editMode, isDragging, isOver, widget, handleDragStart, ha
         display: 'flex',
         flexDirection: 'column',
         userSelect: editMode ? 'none' : 'auto',
+        touchAction: editMode ? 'none' : 'auto',
       }}
-      draggable={editMode}
-      onDragStart={e => handleDragStart(e, widget.id)}
-      onDragOver={e => handleDragOver(e, widget.id)}
-      onDrop={e => handleDrop(e, widget.id)}
-      onDragEnd={handleDragEnd}
     >
+      {/* Drag zone — top strip of card, only in edit mode */}
       {editMode && (
-        <div className="widget-drag-handle">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{opacity:0.8}}>
-            <circle cx="9" cy="6" r="2"/><circle cx="15" cy="6" r="2"/>
-            <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
-            <circle cx="9" cy="18" r="2"/><circle cx="15" cy="18" r="2"/>
-          </svg>
-          {widget.label}
+        <div
+          className="widget-drag-zone"
+          onPointerDown={e => handleDragPointerDown(e, widget.id)}
+          onPointerMove={e => handleDragPointerMove(e, widget.id)}
+          onPointerUp={e => handleDragPointerUp(e, widget.id)}
+          onPointerCancel={e => handleDragPointerUp(e, widget.id)}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        >
+          <div className="widget-drag-zone-pill">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="9" cy="5" r="2"/><circle cx="15" cy="5" r="2"/>
+              <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
+              <circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/>
+            </svg>
+            {widget.label}
+          </div>
         </div>
       )}
 
@@ -3484,11 +3530,12 @@ const WidgetShell = ({ editMode, isDragging, isOver, widget, handleDragStart, ha
         {widget.label}
       </div>
 
-      {/* Main content — hidden by CSS when sz-tiny */}
-      <div style={{display:'contents'}} className="widget-content">
+      {/* Main content */}
+      <div style={{display:'contents'}}>
         {children({ w, h, sizeClass })}
       </div>
 
+      {/* Resize handle */}
       {editMode && (
         <div
           className="widget-resize-handle"
@@ -3529,37 +3576,60 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
   // widgetLayout is now lifted to App (persisted) — received as prop
   const setWidgetLayout = onWidgetLayoutChange;
 
+  // ── Pointer-based drag state ──────────────────────────────────────────────
   const [dragWidgetId, setDragWidgetId] = useState(null);
-  const [dragOverId, setDragOverId] = useState(null);
-  const resizingRef = React.useRef(null);
+  const [dragOverSlot, setDragOverSlot] = useState(null); // index in widgetLayout array
+  const [dragPreview, setDragPreview] = useState(null);   // { x, y, label }
+  const dragState = React.useRef(null); // live drag data (avoids stale closures)
 
-  // Drag handlers for reordering widgets
-  const handleDragStart = (e, id) => {
+  // Start drag — called from pointer-down on the drag zone
+  const handleDragPointerDown = (e, id) => {
     if (!editMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const widget = widgetLayout.find(w => w.id === id);
+    dragState.current = { id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false };
     setDragWidgetId(id);
-    e.dataTransfer.effectAllowed = 'move';
+    setDragPreview({ x: e.clientX, y: e.clientY, label: widget?.label ?? id });
   };
-  const handleDragOver = (e, id) => {
-    if (!editMode || !dragWidgetId || dragWidgetId === id) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverId(id);
+
+  const handleDragPointerMove = (e, id) => {
+    if (!dragState.current || dragState.current.id !== id) return;
+    dragState.current.moved = true;
+    setDragPreview(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null);
   };
-  const handleDrop = (e, targetId) => {
-    if (!editMode || !dragWidgetId || dragWidgetId === targetId) return;
-    e.preventDefault();
-    setWidgetLayout(prev => {
-      const next = [...prev];
-      const fromIdx = next.findIndex(w => w.id === dragWidgetId);
-      const toIdx   = next.findIndex(w => w.id === targetId);
-      const [moved] = next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, moved);
-      return next;
-    });
+
+  const handleDragPointerUp = (e, id) => {
+    if (!dragState.current || dragState.current.id !== id) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    // Commit the reorder if we have a valid slot
+    if (dragOverSlot !== null) {
+      setWidgetLayout(prev => {
+        const next = [...prev];
+        const fromIdx = next.findIndex(w => w.id === id);
+        if (fromIdx === -1) return prev;
+        const [moved] = next.splice(fromIdx, 1);
+        // Adjust target index after removal
+        const toIdx = Math.max(0, Math.min(next.length, dragOverSlot > fromIdx ? dragOverSlot - 1 : dragOverSlot));
+        next.splice(toIdx, 0, moved);
+        return next;
+      });
+    }
+    dragState.current = null;
     setDragWidgetId(null);
-    setDragOverId(null);
+    setDragOverSlot(null);
+    setDragPreview(null);
   };
-  const handleDragEnd = () => { setDragWidgetId(null); setDragOverId(null); };
+
+  // Called on the drop-slot div's pointer events
+  const handleSlotPointerEnter = (slotIdx) => {
+    if (dragWidgetId !== null) setDragOverSlot(slotIdx);
+  };
+  const handleSlotPointerLeave = () => {
+    // keep last slot — only clear on drop/cancel
+  };
 
   // Resize: mousedown on the resize handle
   const handleResizeMouseDown = (e, id) => {
@@ -4000,24 +4070,47 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
 
           {/* WIDGET GRID CANVAS */}
           <div className={`dashboard-edit-canvas${editMode ? ' edit-active' : ''}`} style={{marginBottom:'var(--space-lg)'}}>
-            <div className="dashboard-edit-grid" style={{gridTemplateColumns:'repeat(12,1fr)',gridAutoRows:'60px',gap:'12px',display:'grid'}}>
-              {widgetLayout.map(widget => {
-                const isOver = dragOverId === widget.id;
+            <div
+              className="dashboard-edit-grid"
+              style={{gridTemplateColumns:'repeat(12,1fr)',gridAutoRows:'60px',gap:'12px',display:'grid'}}
+              onPointerLeave={() => { if (dragWidgetId) setDragOverSlot(null); }}
+            >
+              {widgetLayout.map((widget, idx) => {
                 const isDragging = dragWidgetId === widget.id;
+                // Drop slot BEFORE this widget (shown only in edit mode while dragging)
+                const showSlot = editMode && dragWidgetId !== null && dragWidgetId !== widget.id;
                 return (
-                  <WidgetShell
-                    key={widget.id}
-                    widget={widget}
-                    editMode={editMode}
-                    isDragging={isDragging}
-                    isOver={isOver}
-                    handleDragStart={handleDragStart}
-                    handleDragOver={handleDragOver}
-                    handleDrop={handleDrop}
-                    handleDragEnd={handleDragEnd}
-                    handleResizeMouseDown={handleResizeMouseDown}
-                  >
-                    {({ w, h, sizeClass }) => {
+                  <React.Fragment key={widget.id}>
+                    {showSlot && (
+                      <div
+                        className={`drop-slot${dragOverSlot === idx ? ' slot-hover' : ' slot-active'}`}
+                        style={{
+                          gridColumn: 'span 2',
+                          gridRow: 'span 2',
+                          minHeight: 40,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        onPointerEnter={() => handleSlotPointerEnter(idx)}
+                      >
+                        {dragOverSlot === idx && (
+                          <div style={{fontSize:'11px',fontWeight:600,color:'var(--accent)',opacity:0.8}}>
+                            Drop here
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <WidgetShell
+                      widget={widget}
+                      editMode={editMode}
+                      isDragging={isDragging}
+                      handleDragPointerDown={handleDragPointerDown}
+                      handleDragPointerMove={handleDragPointerMove}
+                      handleDragPointerUp={handleDragPointerUp}
+                      handleResizeMouseDown={handleResizeMouseDown}
+                    >
+                      {({ w, h, sizeClass }) => {
                       // Derived layout hints
                       const isNarrow  = w < 360;
                       const isWide    = w >= 580;
@@ -4235,10 +4328,42 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
                       return null;
                     }}
                   </WidgetShell>
+                  </React.Fragment>
                 );
               })}
+              {/* Trailing drop-slot — allows dropping at the end */}
+              {editMode && dragWidgetId !== null && (
+                <div
+                  className={`drop-slot${dragOverSlot === widgetLayout.length ? ' slot-hover' : ' slot-active'}`}
+                  style={{gridColumn:'span 2',gridRow:'span 2',minHeight:40,display:'flex',alignItems:'center',justifyContent:'center'}}
+                  onPointerEnter={() => handleSlotPointerEnter(widgetLayout.length)}
+                >
+                  {dragOverSlot === widgetLayout.length && (
+                    <div style={{fontSize:'11px',fontWeight:600,color:'var(--accent)',opacity:0.8}}>Drop here</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Floating drag-preview card — follows pointer during drag */}
+          {dragPreview && (
+            <div
+              className="drag-preview-card"
+              style={{
+                left: dragPreview.x + 16,
+                top: dragPreview.y - 20,
+                transform: 'rotate(-1.5deg)',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{opacity:0.7}}>
+                <circle cx="9" cy="5" r="2"/><circle cx="15" cy="5" r="2"/>
+                <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
+                <circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/>
+              </svg>
+              {dragPreview.label}
+            </div>
+          )}
         </>)}
 
         {/* Blank canvas empty state */}
