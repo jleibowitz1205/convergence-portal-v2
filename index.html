@@ -2534,53 +2534,244 @@ const NewDashboardModal = ({ onClose, onCreate, savedReports = [] }) => {
 };
 
 // ─── MINI REPORT CHART (renders a saved report's chart type) ─────────────────
+// MiniReportChart — faithfully re-renders a saved report using its full saved
+// configuration (chartType, yMetrics, seriesColors, xDateGroup, yAxisFormat,
+// showDataPoints, subtitle). Mirrors the Report Builder's renderPreview logic
+// so the dashboard card matches exactly what was built in the builder.
 const MiniReportChart = ({ report, chartStyle }) => {
   if (!report) return null;
-  const db = DATABASES.find(d => d.id === report.db);
-  const rows = db?.rows || [];
-  const color = report.color || 'var(--chart-1)';
 
-  // Build simple data from the DB rows using first two columns
-  const data = rows.slice(0, 8).map((row, i) => ({
-    x: String(row[0]).slice(0, 16),
-    y: parseFloat(String(row[1]).replace(/[^0-9.]/g, '')) || (i + 1) * 10,
-  }));
+  // ── Pull saved config from report ──────────────────────────────────────────
+  const chartType     = report.chartType    || 'bar';
+  const yMetrics      = report.yMetrics     || [];
+  const seriesColors  = report.seriesColors || ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6'];
+  const xDateGroup    = report.xDateGroup   || 'Month';
+  const yAxisFormat   = report.yAxisFormat  || 'number';
+  const showDataPoints= report.showDataPoints || false;
+  const xAxis         = report.xAxis        || '';
+  const db            = DATABASES.find(d => d.id === report.db);
+  const currentTable  = db?.tables?.find(t => t.name === report.table) || db?.tables?.[0];
 
-  const type = report.chartType || 'bar';
+  const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6'];
+  const getSeriesColor = (i) => seriesColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
 
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      {type === 'bar' ? (
-        <BarChart data={data} margin={{top:4,right:4,left:-20,bottom:0}}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-          <XAxis dataKey="x" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-          <YAxis tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}}/>
-          <Bar dataKey="y" fill={chartStyle==='outlined'?'transparent':color} stroke={color} strokeWidth={chartStyle==='outlined'?1.5:0} radius={[4,4,0,0]} name="Value"/>
-        </BarChart>
-      ) : type === 'pie' ? (
+  const formatYValue = (v) => {
+    if (yAxisFormat === 'currency') return `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`;
+    if (yAxisFormat === 'percent')  return `${v}%`;
+    if (yAxisFormat === 'compact')  return v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`;
+    return `${v}`;
+  };
+
+  // ── Reproduce the same data-generation as the Report Builder ───────────────
+  const getTimeSeriesData = () => {
+    switch (xDateGroup) {
+      case 'Day':
+        return Array.from({length:14}, (_,i) => ({
+          label:`May ${i+1}`,
+          leads:18+Math.round(Math.sin(i*0.7)*8+5),
+          sales:3+Math.round(Math.sin(i*0.5)*2+1),
+          revenue:82000+Math.round(Math.sin(i*0.6)*20000+10000),
+        }));
+      case 'Week':
+        return Array.from({length:12}, (_,i) => ({
+          label:`Wk ${i+1}`,
+          leads:60+Math.round(Math.sin(i*0.6)*25+15),
+          sales:12+Math.round(Math.sin(i*0.5)*5+3),
+          revenue:290000+Math.round(Math.sin(i*0.55)*80000+50000),
+        }));
+      case 'Quarter':
+        return [
+          {label:'Q1',leads:616,sales:127,revenue:3152000},
+          {label:'Q2',leads:773,sales:174,revenue:4338000},
+          {label:'Q3',leads:920,sales:211,revenue:5256000},
+          {label:'Q4',leads:1094,sales:255,revenue:6357000},
+        ];
+      case 'Year':
+        return Array.from({length:5}, (_,i) => ({
+          label:`${2020+i}`,
+          leads:1800+i*420,
+          sales:340+i*82,
+          revenue:8400000+i*2100000,
+        }));
+      case 'Month':
+      default:
+        return monthlyLeads.map(d => ({label:d.month,leads:d.leads,sales:d.sales,revenue:d.revenue}));
+    }
+  };
+
+  const xIsDate = (() => {
+    if (!xAxis || !currentTable) return true;
+    const col = currentTable.cols?.find(c => c.name === xAxis);
+    return !col || col.type === 'date';
+  })();
+
+  const getBarData = () => {
+    if (xIsDate) {
+      return getTimeSeriesData().map(d => ({
+        xLabel:d.label, value:d.leads,
+        value2:Math.round(d.leads*0.72+15),
+        value3:Math.round(d.leads*0.54+30),
+      }));
+    }
+    const col = currentTable?.cols?.find(c => c.name === xAxis);
+    const colName = xAxis || 'Category';
+    let labels = [];
+    if (col && currentTable) {
+      const colIdx = currentTable.cols.indexOf(col);
+      const seen = new Set();
+      for (const row of (db?.rows || [])) {
+        const v = String(row?.[colIdx] ?? '');
+        if (v && !seen.has(v)) { seen.add(v); labels.push(v); }
+        if (labels.length >= 5) break;
+      }
+    }
+    if (labels.length < 3) labels = [`${colName} A`,`${colName} B`,`${colName} C`,`${colName} D`,`${colName} E`];
+    const base = [124,98,87,62,53];
+    return labels.slice(0,5).map((lbl,i) => ({
+      xLabel:lbl,
+      value:base[i]*1000,
+      value2:Math.round(base[i]*0.72)*1000,
+      value3:Math.round(base[i]*0.54)*1000,
+    }));
+  };
+
+  // ── KPI / Number type ──────────────────────────────────────────────────────
+  if (chartType === 'number') {
+    const kpiValue = yAxisFormat === 'currency' ? '$4,347,036'
+      : yAxisFormat === 'percent' ? '68.4%'
+      : yAxisFormat === 'compact' ? '4.3M'
+      : '4,347';
+    return (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:220,gap:8}}>
+        <div style={{fontFamily:'var(--font-display)',fontSize:48,fontWeight:800,color:getSeriesColor(0),lineHeight:1,letterSpacing:'-0.03em'}}>{kpiValue}</div>
+        <div style={{fontFamily:'var(--font-subheading)',fontSize:12,color:'var(--text-secondary)',fontWeight:500}}>{yMetrics[0]?.field || 'Metric'}</div>
+      </div>
+    );
+  }
+
+  // ── Table type ─────────────────────────────────────────────────────────────
+  if (chartType === 'table') {
+    const tsData = getTimeSeriesData().slice(0,6);
+    const cols = yMetrics.length > 0
+      ? ['label', ...yMetrics.map((_,i) => ['leads','sales','revenue'][i]||'leads')]
+      : ['label','leads','sales'];
+    return (
+      <div style={{overflow:'auto',maxHeight:220,fontSize:11}}>
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <thead>
+            <tr>{cols.map(c => <th key={c} style={{padding:'5px 10px',textAlign:'left',fontFamily:'var(--font-subheading)',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.07em',color:'var(--text-tertiary)',borderBottom:'1px solid var(--border)'}}>{c}</th>)}</tr>
+          </thead>
+          <tbody>
+            {tsData.map((row,i) => (
+              <tr key={i} style={{borderBottom:'1px solid var(--border)'}}>
+                {cols.map(c => <td key={c} style={{padding:'5px 10px',color:'var(--text-primary)'}}>{typeof row[c] === 'number' ? formatYValue(row[c]) : row[c]}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // ── Pie type ───────────────────────────────────────────────────────────────
+  if (chartType === 'pie') {
+    const pieData = getBarData().map((d,i) => ({name:d.xLabel, value:d.value, fill:getSeriesColor(i)}));
+    return (
+      <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie data={data.map((d,i) => ({...d, color: `hsl(${(i*47)%360},60%,55%)`}))} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={3} dataKey="y" nameKey="x">
-            {data.map((_, i) => <Cell key={i} fill={`hsl(${(i*47)%360},60%,55%)`}/>)}
+          <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={3} dataKey="value" nameKey="name">
+            {pieData.map((d,i) => <Cell key={i} fill={d.fill}/>)}
           </Pie>
-          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}}/>
+          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={v => [formatYValue(v)]}/>
           <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
         </PieChart>
-      ) : (
-        <AreaChart data={data} margin={{top:4,right:4,left:-20,bottom:0}}>
+      </ResponsiveContainer>
+    );
+  }
+
+  // ── Line / Area types ──────────────────────────────────────────────────────
+  if (chartType === 'line' || chartType === 'area') {
+    const tsData = getTimeSeriesData();
+    const dataKeys = yMetrics.length > 0
+      ? yMetrics.map((_,i) => ['leads','sales','revenue'][i]||'leads')
+      : ['leads'];
+    const isFilled = chartType === 'area' && chartStyle !== 'outlined';
+    return (
+      <ResponsiveContainer width="100%" height={220}>
+        <AreaChart data={tsData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
           <defs>
-            <linearGradient id="reportGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={chartStyle==='filled'?0.2:0}/>
-              <stop offset="95%" stopColor={color} stopOpacity={0}/>
-            </linearGradient>
+            {dataKeys.map((dk,i) => (
+              <linearGradient key={i} id={`mrcGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={getSeriesColor(i)} stopOpacity={isFilled?0.22:0}/>
+                <stop offset="95%" stopColor={getSeriesColor(i)} stopOpacity={0}/>
+              </linearGradient>
+            ))}
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-          <XAxis dataKey="x" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-          <YAxis tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}}/>
-          <Area type="monotone" dataKey="y" stroke={color} strokeWidth={2} fill="url(#reportGrad)" dot={false} name="Value"/>
+          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={v=>[formatYValue(v)]}/>
+          <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
+          {dataKeys.map((dk,i) => (
+            <Area key={i} type="monotone" dataKey={dk}
+              stroke={getSeriesColor(i)} strokeWidth={2}
+              fill={`url(#mrcGrad${i})`}
+              dot={showDataPoints?{r:4,fill:getSeriesColor(i),strokeWidth:0}:false}
+              activeDot={{r:5}}
+              name={yMetrics[i]?.field || dk}/>
+          ))}
         </AreaChart>
-      )}
+      </ResponsiveContainer>
+    );
+  }
+
+  // ── Row (horizontal bar) type ──────────────────────────────────────────────
+  if (chartType === 'row') {
+    const barData = getBarData();
+    return (
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={barData} layout="vertical" margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
+          <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+          <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
+          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={v=>[formatYValue(v)]}/>
+          <Bar dataKey="value" fill={getSeriesColor(0)} radius={[0,4,4,0]} name={yMetrics[0]?.field||'Value'}>
+            {showDataPoints && <LabelList dataKey="value" position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+          </Bar>
+          {yMetrics.length > 1 && (
+            <Bar dataKey="value2" fill={getSeriesColor(1)} radius={[0,4,4,0]} name={yMetrics[1]?.field||'Series 2'}>
+              {showDataPoints && <LabelList dataKey="value2" position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+            </Bar>
+          )}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  // ── Default: Bar (vertical) ────────────────────────────────────────────────
+  const barData = getBarData();
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
+        <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+        <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+        <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={v=>[formatYValue(v)]}/>
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
+        <Bar dataKey="value" fill={chartStyle==='outlined'?'transparent':getSeriesColor(0)} stroke={getSeriesColor(0)} strokeWidth={chartStyle==='outlined'?1.5:0} radius={[4,4,0,0]} name={yMetrics[0]?.field||'Series 1'}>
+          {showDataPoints && <LabelList dataKey="value" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+        </Bar>
+        {yMetrics.length > 1 && (
+          <Bar dataKey="value2" fill={chartStyle==='outlined'?'transparent':getSeriesColor(1)} stroke={getSeriesColor(1)} strokeWidth={chartStyle==='outlined'?1.5:0} radius={[4,4,0,0]} name={yMetrics[1]?.field||'Series 2'}>
+            {showDataPoints && <LabelList dataKey="value2" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+          </Bar>
+        )}
+        {yMetrics.length > 2 && (
+          <Bar dataKey="value3" fill={chartStyle==='outlined'?'transparent':getSeriesColor(2)} stroke={getSeriesColor(2)} strokeWidth={chartStyle==='outlined'?1.5:0} radius={[4,4,0,0]} name={yMetrics[2]?.field||'Series 3'}>
+            {showDataPoints && <LabelList dataKey="value3" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+          </Bar>
+        )}
+      </BarChart>
     </ResponsiveContainer>
   );
 };
