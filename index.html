@@ -5838,9 +5838,28 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     return next;
   });
   const BAR_SIZE_PX    = { sm: 12, md: 22, lg: 38 };
-  const STROKE_SIZE_PX = { sm: 1.5, md: 2.5, lg: 4 };
+  const STROKE_SIZE_PX = { sm: 1.5, md: 3, lg: 6 };
   const getBarSize    = (i) => BAR_SIZE_PX[getSeriesSize(i)] || BAR_SIZE_PX.md;
   const getStrokeSize = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
+
+  // Resolve how series `i` is actually drawn on the current chart:
+  // returns 'bar' | 'line' | 'area' | null. For combo charts this respects
+  // each metric's per-series comboType (so a metric switched to a line plot
+  // is correctly treated as a line, not a bar).
+  const getSeriesRenderType = (i) => {
+    if (chartType === 'bar' || chartType === 'row') return 'bar';
+    if (chartType === 'line') return 'line';
+    if (chartType === 'area') return 'area';
+    if (chartType === 'combo') return yMetrics[i]?.comboType || 'bar';
+    return null;
+  };
+  // Sizing only applies to bar/line/area series.
+  const getSeriesSizeKind = (i) => {
+    const rt = getSeriesRenderType(i);
+    if (rt === 'bar') return 'bar';
+    if (rt === 'line' || rt === 'area') return 'line';
+    return null;
+  };
 
   const onResizeMouseDown = (e) => {
     e.preventDefault();
@@ -7357,6 +7376,9 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:10}}>
                         {seriesList.map(({label,idx}) => {
                           const isActive = selectedSeriesIdx === idx;
+                          const rt = isPieChart ? null : getSeriesRenderType(idx);
+                          const rtLabel = rt === 'bar' ? 'Bar' : rt === 'line' ? 'Line' : rt === 'area' ? 'Area' : null;
+                          const rtIcon = rt === 'bar' ? 'bars' : rt === 'line' ? 'lineChart' : rt === 'area' ? 'area' : null;
                           return (
                             <div key={idx}
                               onClick={() => setSelectedSeriesIdx(idx)}
@@ -7372,7 +7394,19 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                               <span style={{fontSize:'12.5px',fontWeight:isActive?600:400,color:isActive?'var(--accent)':'var(--text-primary)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                                 {label}
                               </span>
-                              {isActive && <span style={{fontSize:'10px',color:'var(--accent)',fontWeight:600}}>editing</span>}
+                              {rtLabel && (
+                                <span style={{
+                                  display:'inline-flex',alignItems:'center',gap:3,
+                                  fontSize:'10px',fontWeight:600,
+                                  color: isActive ? 'var(--accent)' : 'var(--text-tertiary)',
+                                  background: isActive ? 'rgba(94,16,188,0.10)' : 'var(--badge-bg)',
+                                  padding:'2px 6px',borderRadius:10,flexShrink:0,
+                                }}>
+                                  {rtIcon && <Icon name={rtIcon} size={10}/>}
+                                  {rtLabel}
+                                </span>
+                              )}
+                              {isActive && <span style={{fontSize:'10px',color:'var(--accent)',fontWeight:600,flexShrink:0}}>editing</span>}
                             </div>
                           );
                         })}
@@ -7418,22 +7452,18 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
 
                       {/* ── Per-series size: bar width / line thickness ── */}
                       {(() => {
-                        // Determine whether the selected series is a bar or a line/area,
-                        // and what label to show.
-                        let sizeKind = null; // 'bar' | 'line' | null
-                        if (chartType === 'bar' || chartType === 'row') sizeKind = 'bar';
-                        else if (chartType === 'line' || chartType === 'area') sizeKind = 'line';
-                        else if (chartType === 'combo') {
-                          const ct = yMetrics[selectedSeriesIdx]?.comboType;
-                          if (ct === 'bar') sizeKind = 'bar';
-                          else if (ct === 'line' || ct === 'area') sizeKind = 'line';
-                        }
+                        // Resolve how THIS series is drawn (respects combo per-series type)
+                        const sizeKind = getSeriesSizeKind(selectedSeriesIdx);
                         if (!sizeKind) return null;
-                        const sizeLabel = sizeKind === 'bar' ? 'Bar Width' : 'Line Thickness';
+                        const renderType = getSeriesRenderType(selectedSeriesIdx);
+                        const sizeLabel = sizeKind === 'bar'
+                          ? 'Bar Width'
+                          : (renderType === 'area' ? 'Area Line Thickness' : 'Line Thickness');
                         const curSize = getSeriesSize(selectedSeriesIdx);
                         return (
                           <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}>
-                            <div style={{fontSize:'11px',color:'var(--text-tertiary)',fontWeight:600,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                            <div style={{fontSize:'11px',color:'var(--text-tertiary)',fontWeight:600,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em',display:'flex',alignItems:'center',gap:6}}>
+                              <Icon name={sizeKind === 'bar' ? 'bars' : 'lineChart'} size={11}/>
                               {sizeLabel}
                             </div>
                             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
@@ -7446,7 +7476,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                 // visual preview bar/line for the option
                                 const previewThickness = sizeKind === 'bar'
                                   ? {sm:6, md:11, lg:18}[opt.id]
-                                  : {sm:2, md:3, lg:5}[opt.id];
+                                  : {sm:2, md:4, lg:7}[opt.id];
                                 return (
                                   <button key={opt.id} onClick={()=>setSeriesSize(selectedSeriesIdx, opt.id)}
                                     style={{
@@ -7465,6 +7495,11 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                 );
                               })}
                             </div>
+                            {chartType === 'combo' && (
+                              <div style={{fontSize:'10.5px',color:'var(--text-tertiary)',marginTop:7,lineHeight:1.4}}>
+                                This series is rendered as a <strong>{renderType}</strong>. Change a series' type (bar / line / area) back in the <strong>Visualize</strong> step.
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
