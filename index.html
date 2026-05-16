@@ -2052,6 +2052,483 @@
     background: var(--input-bg);
   }
 
+  /* ── Vehicle rows ──────────────────────────────────────────────────── */
+  .tp-group-row-icon.amber { background: rgba(205,110,20,0.11); color: #c96a10; }
+  .tp-vehicle-row { position: relative; padding: 14px; }
+  .tp-vehicle-row:hover .tp-vehicle-remove-btn { opacity: 1; }
+
+  /* Header: full-width VIN + remove */
+  .tp-vehicle-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--card-border);
+    margin-bottom: 10px;
+  }
+  .tp-vehicle-vin {
+    font-family: monospace;
+    font-size: 12px; font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    word-break: break-all;
+    flex: 1;
+  }
+  .tp-vehicle-ymm {
+    font-family: var(--font-subheading);
+    font-size: 11px; font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    /* Aligns YMM with the dates column (icon col 54px + gap 14px) */
+    padding-left: 68px;
+  }
+
+  /* Body: icon+badge column / date list column */
+  .tp-vehicle-body {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .tp-vehicle-icon-col {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+  }
+  .tp-vehicle-icon-col .tp-group-row-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+  }
+  .tp-vehicle-badge {
+    font-family: var(--font-subheading);
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    line-height: 1.4;
+    width: 100%;
+    text-align: center;
+  }
+  .tp-vehicle-badge.owned {
+    background: rgba(61,184,50,0.13);
+    color: #2a9020;
+    border-color: rgba(61,184,50,0.28);
+  }
+  .tp-vehicle-badge.owned:hover { background: rgba(61,184,50,0.22); }
+  .tp-vehicle-badge.traded {
+    background: rgba(156,150,174,0.13);
+    color: var(--text-tertiary);
+    border-color: rgba(156,150,174,0.25);
+  }
+  .tp-vehicle-badge.traded:hover { background: rgba(156,150,174,0.22); }
+
+  /* Dates: label: value on same line */
+  .tp-vehicle-dates {
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .tp-vehicle-date-item {
+    display: flex; flex-direction: row; align-items: baseline;
+    justify-content: space-between; gap: 6px;
+    min-width: 0;
+  }
+  .tp-vehicle-date-lbl {
+    font-family: var(--font-subheading);
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .tp-vehicle-date-val {
+    font-family: var(--font-subheading);
+    font-size: 11px; font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    text-align: right;
+  }
+  .tp-vehicle-date-val.empty { color: var(--text-tertiary); font-weight: 500; }
+  .tp-vehicle-remove-btn {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-tertiary);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.12s, background 0.12s, color 0.12s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .tp-vehicle-remove-btn:hover { background: rgba(239,68,68,0.10); color: #ef4444; border-color: rgba(239,68,68,0.25); }
+  /* + button next to group head */
+  .tp-group-head-actions { display: flex; align-items: center; gap: 7px; }
+  .tp-add-vehicle-btn {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-tertiary);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    padding: 0;
+  }
+  .tp-add-vehicle-btn:hover { background: var(--accent-light); color: var(--accent); border-color: rgba(94,16,188,0.3); }
+  /* Add-vehicle inline form */
+  .tp-add-vehicle-form {
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--input-bg);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .tp-avf-row { display: grid; gap: 6px; }
+  .tp-avf-2col { grid-template-columns: 1fr 1fr; }
+  .tp-avf-3col { grid-template-columns: 1fr 1fr 1fr; }
+  .tp-avf-group { display: flex; flex-direction: column; gap: 2px; }
+  .tp-avf-label {
+    font-family: var(--font-subheading);
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .tp-avf-input {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-family: var(--font-body);
+    font-size: 11px;
+    color: var(--text-primary);
+    outline: none;
+  }
+  .tp-avf-input:focus { border-color: var(--accent); }
+  .tp-avf-input::placeholder { color: var(--text-tertiary); }
+  .tp-avf-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 2px; }
+  .tp-avf-btn-cancel {
+    padding: 5px 10px;
+    font-size: 11px; font-family: var(--font-subheading); font-weight: 600;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-secondary);
+    border-radius: 5px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .tp-avf-btn-cancel:hover { background: var(--card-bg); }
+  .tp-avf-btn-add {
+    padding: 5px 12px;
+    font-size: 11px; font-family: var(--font-subheading); font-weight: 600;
+    border: none;
+    background: var(--accent); color: #fff;
+    border-radius: 5px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .tp-avf-btn-add:hover { background: var(--accent-dark); }
+  .tp-avf-btn-add:disabled { opacity: 0.45; cursor: default; }
+
+  /* ── Associated Contacts ───────────────────────────────────────────── */
+  .tp-group-row-icon.azure { background: rgba(42,111,219,0.12); color: #2a6fdb; }
+
+  /* Card stack — independent bordered cards with breathing room between them */
+  .tp-assoc-stack {
+    display: flex; flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .tp-contact-card {
+    position: relative;
+    padding: 14px;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .tp-contact-card:hover .tp-vehicle-remove-btn { opacity: 1; }
+  /* When the add-contact form sits in the stack, drop its inherited top border */
+  .tp-assoc-stack .tp-add-vehicle-form { border-top: none; }
+
+  /* Vehicle "Shared" badge — used in the Vehicles group for vehicles
+     shared in from another associated contact. */
+  .tp-vehicle-badge.shared {
+    background: rgba(42,111,219,0.12);
+    color: #2a6fdb;
+    border-color: rgba(42,111,219,0.28);
+    cursor: default;
+  }
+  .tp-vehicle-shared-note {
+    font-family: var(--font-subheading);
+    font-size: 9px; font-weight: 600;
+    color: #2a6fdb;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-top: 3px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .tp-contact-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--card-border);
+  }
+  .tp-contact-av {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-subheading);
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .tp-contact-name {
+    font-family: var(--font-subheading);
+    font-size: 13px; font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+  .tp-contact-phone {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-family: monospace;
+    margin-top: 2px;
+  }
+  .tp-contact-props {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .tp-contact-prop-row {
+    display: grid;
+    grid-template-columns: 16px auto 1fr;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+  }
+  .tp-contact-prop-icon {
+    color: var(--text-tertiary);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tp-contact-prop-lbl {
+    font-family: var(--font-subheading);
+    font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+  }
+  .tp-contact-prop-val {
+    font-family: var(--font-subheading);
+    font-size: 12px; font-weight: 500;
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    min-width: 0;
+    min-height: 26px;
+    transition: background 0.12s, border-color 0.12s;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tp-contact-prop-val:hover {
+    background: var(--input-bg);
+    border-color: var(--border);
+  }
+  .tp-contact-prop-val.empty { color: var(--text-tertiary); font-style: italic; font-weight: 400; }
+  .tp-contact-prop-input {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-family: var(--font-subheading);
+    color: var(--text-primary);
+    outline: none;
+    min-height: 26px;
+    box-shadow: 0 0 0 3px rgba(94,16,188,0.12);
+  }
+
+  /* Shared vehicles sub-section */
+  .tp-contact-shared {
+    border-top: 1px solid var(--card-border);
+    padding-top: 12px;
+  }
+  .tp-contact-shared-lbl {
+    font-family: var(--font-subheading);
+    font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tp-contact-share-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    margin-bottom: 5px;
+    background: var(--card-bg);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .tp-contact-share-row:hover { background: var(--input-bg); }
+  .tp-contact-share-row.is-shared {
+    background: rgba(42,111,219,0.06);
+    border-color: rgba(42,111,219,0.25);
+  }
+  .tp-contact-share-row:last-child { margin-bottom: 0; }
+  .tp-contact-share-check {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid var(--text-tertiary);
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: #fff;
+  }
+  .tp-contact-share-row.is-shared .tp-contact-share-check {
+    background: #2a6fdb;
+    border-color: #2a6fdb;
+  }
+  .tp-contact-share-text {
+    display: flex; flex-direction: column; gap: 1px;
+    flex: 1; min-width: 0;
+  }
+  .tp-contact-share-ymm {
+    font-family: var(--font-subheading);
+    font-size: 11.5px; font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tp-contact-share-vin {
+    font-family: monospace;
+    font-size: 10px; font-weight: 500;
+    color: var(--text-tertiary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tp-contact-shared-empty {
+    font-size: 11px; font-family: var(--font-subheading);
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: 8px;
+    font-style: italic;
+  }
+
+  /* Add-contact form (dropdown of CX_CUSTOMERS) */
+  .tp-acf-options {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+  }
+  .tp-acf-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--card-border);
+    transition: background 0.12s;
+  }
+  .tp-acf-option:last-child { border-bottom: none; }
+  .tp-acf-option:hover { background: var(--accent-light); }
+  .tp-acf-option .tp-contact-av { width: 28px; height: 28px; font-size: 11px; }
+  .tp-acf-empty {
+    padding: 14px; text-align: center;
+    font-size: 11px; color: var(--text-tertiary);
+    font-family: var(--font-subheading);
+  }
+
+  /* Mini calendar popover for DOB */
+  .tp-cal-pop {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+    padding: 10px;
+    width: 240px;
+    user-select: none;
+  }
+  .tp-cal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 4px;
+  }
+  .tp-cal-nav {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .tp-cal-nav:hover { background: var(--accent-light); color: var(--accent); }
+  .tp-cal-title {
+    flex: 1; text-align: center;
+    font-family: var(--font-subheading);
+    font-size: 12px; font-weight: 700;
+    color: var(--text-primary);
+  }
+  .tp-cal-selects { display: flex; gap: 4px; }
+  .tp-cal-select {
+    font-family: var(--font-subheading);
+    font-size: 11px; font-weight: 600;
+    color: var(--text-primary);
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 4px;
+    cursor: pointer;
+    outline: none;
+  }
+  .tp-cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .tp-cal-dow {
+    font-family: var(--font-subheading);
+    font-size: 9px; font-weight: 700;
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: 4px 0;
+    text-transform: uppercase;
+  }
+  .tp-cal-day {
+    aspect-ratio: 1;
+    border: none;
+    background: transparent;
+    border-radius: 5px;
+    font-family: var(--font-subheading);
+    font-size: 11px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.12s;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .tp-cal-day:hover { background: var(--accent-light); color: var(--accent); }
+  .tp-cal-day.muted { color: var(--text-tertiary); opacity: 0.45; }
+  .tp-cal-day.selected {
+    background: var(--accent);
+    color: #fff;
+  }
+  .tp-cal-day.selected:hover { background: var(--accent-dark); color: #fff; }
+  .tp-cal-foot {
+    display: flex; justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--card-border);
+  }
+  .tp-cal-foot-btn {
+    font-family: var(--font-subheading);
+    font-size: 10px; font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  .tp-cal-foot-btn:hover { color: var(--accent); border-color: var(--accent); }
+
   /* Tables (Weave + Portfolio txn list use simple tables) */
   .cx-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .cx-table thead th {
@@ -3090,11 +3567,373 @@ const WeaveScreen = () => {
   );
 };
 
+// Format dates as MM/DD/YYYY regardless of input format
+const fmtVehicleDate = (s) => {
+  if (!s) return null;
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s.trim())) return s.trim();
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return s;
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+};
+
+// ─── VEHICLE DATA (per customer) ─────────────────────────────────────────────
+const INITIAL_VEHICLES = {
+  1: [
+    { id:'v1-1', vin:'1HGCM82633A004352', year:'2024', make:'Honda',   model:'Accord Sport',      purchaseDate:'Jan 15, 2024', lastServiceDate:'Apr 23, 2026', tradeDate:null,           owned:true  },
+    { id:'v1-2', vin:'2T1BURHE0JC043821', year:'2020', make:'Toyota',  model:'Corolla LE',         purchaseDate:'Mar 08, 2020', lastServiceDate:'Dec 10, 2023', tradeDate:'Jan 15, 2024', owned:false },
+  ],
+  2: [],
+  3: [
+    { id:'v3-1', vin:'5UXCR6C57KLL56423', year:'2024', make:'BMW',     model:'X5 xDrive40i',       purchaseDate:'Mar 10, 2024', lastServiceDate:'Apr 27, 2026', tradeDate:null,           owned:true  },
+    { id:'v3-2', vin:'3VWF17AT9DM634891', year:'2020', make:'BMW',     model:'3 Series 330i',      purchaseDate:'Feb 01, 2020', lastServiceDate:'Feb 28, 2024', tradeDate:'Mar 10, 2024', owned:false },
+  ],
+  4: [
+    { id:'v4-1', vin:'4T1B11HK4JU523016', year:'2022', make:'Toyota',  model:'Camry XSE',          purchaseDate:'Aug 20, 2022', lastServiceDate:'Jun 15, 2025', tradeDate:null,           owned:true  },
+  ],
+  5: [
+    { id:'v5-1', vin:'1N4BL4EV4KC234507', year:'2023', make:'Nissan',  model:'Altima SL',          purchaseDate:'Jun 01, 2023', lastServiceDate:'Mar 05, 2026', tradeDate:null,           owned:true  },
+  ],
+  6: [
+    { id:'v6-1', vin:'1FTBR1X80MKA00041', year:'2025', make:'Ford',    model:'Transit Cargo Van',  purchaseDate:'Jan 08, 2025', lastServiceDate:'Mar 20, 2026', tradeDate:null,           owned:true  },
+    { id:'v6-2', vin:'1FTBR1X80MKA00042', year:'2025', make:'Ford',    model:'Transit Cargo Van',  purchaseDate:'Jan 08, 2025', lastServiceDate:'Mar 20, 2026', tradeDate:null,           owned:true  },
+    { id:'v6-3', vin:'1FTBR1X80MKA00043', year:'2025', make:'Ford',    model:'Transit Cargo Van',  purchaseDate:'Jan 08, 2025', lastServiceDate:'Mar 22, 2026', tradeDate:null,           owned:true  },
+  ],
+  7: [
+    { id:'v7-1', vin:'1C4RJFBG5PC183742', year:'2023', make:'Jeep',    model:'Grand Cherokee L',   purchaseDate:'May 20, 2023', lastServiceDate:'Feb 12, 2026', tradeDate:null,           owned:true  },
+    { id:'v7-2', vin:'1C4RJFBG0HC567890', year:'2017', make:'Jeep',    model:'Grand Cherokee',     purchaseDate:'Nov 15, 2017', lastServiceDate:'Apr 10, 2023', tradeDate:'May 20, 2023', owned:false },
+  ],
+  8: [],
+  9: [
+    { id:'v9-1', vin:'5NPE24AF3MH234507', year:'2021', make:'Hyundai', model:'Sonata N-Line',      purchaseDate:'Jul 04, 2021', lastServiceDate:'Apr 10, 2026', tradeDate:null,           owned:true  },
+  ],
+  10: [
+    { id:'v10-1', vin:'1FTFW1ET4NFA11191', year:'2022', make:'Ford',   model:'F-150 Lariat',       purchaseDate:'Mar 01, 2022', lastServiceDate:'Jan 20, 2026', tradeDate:null,           owned:true  },
+    { id:'v10-2', vin:'1FMCU9GD1KUA22282', year:'2019', make:'Ford',   model:'Escape SEL',         purchaseDate:'Nov 12, 2018', lastServiceDate:'Feb 15, 2022', tradeDate:'Mar 01, 2022', owned:false },
+  ],
+};
+
+// ─── ASSOCIATED-CONTACT DATA ─────────────────────────────────────────────────
+// Per-customer email & DOB (DOB stored as YYYY-MM-DD)
+const INITIAL_CONTACT_PROPS = {
+  1:  { email:'sarah.johnson@example.com',    dob:'1985-03-15' }, // Sarah Johnson
+  2:  { email:'marcus.w@example.com',         dob:'1990-07-21' }, // Marcus Williams
+  3:  { email:'jen.chen@example.com',         dob:'1982-02-08' }, // Jennifer Chen
+  4:  { email:'',                              dob:'' },           // Robert Davis
+  5:  { email:'amanda.torres@example.com',    dob:'1991-11-04' }, // Amanda Torres
+  6:  { email:'kevin.park@example.com',       dob:'1978-08-22' }, // Kevin Park
+  7:  { email:'lisa.h@example.com',           dob:'1989-04-12' }, // Lisa Hernandez
+  8:  { email:'',                              dob:'' },           // David Thompson
+  9:  { email:'patricia.moore@example.com',   dob:'1972-06-30' }, // Patricia Moore
+  10: { email:'james.wilson@metrofleet.com',  dob:'1980-12-05' }, // James Wilson
+};
+
+// associationsMap[contactId] = [{ otherId, sharedVehicleIds: [<ids from THIS contact's vehicles> ] }]
+// Symmetric: both sides hold an entry; sharedVehicleIds always reference the OWNING contact's vehicles.
+const INITIAL_ASSOCIATIONS = {
+  1: [
+    { otherId: 6, sharedVehicleIds: ['v1-1'] },        // Sarah ↔ Kevin (household)
+    { otherId: 3, sharedVehicleIds: ['v1-2'] },        // Sarah ↔ Jennifer (sister)
+  ],
+  3: [
+    { otherId: 1, sharedVehicleIds: ['v3-1'] },        // Jennifer ↔ Sarah
+  ],
+  4: [
+    { otherId: 5, sharedVehicleIds: ['v4-1'] },        // Robert ↔ Amanda (roommates)
+  ],
+  5: [
+    { otherId: 4, sharedVehicleIds: ['v5-1'] },        // Amanda ↔ Robert
+  ],
+  6: [
+    { otherId: 1, sharedVehicleIds: ['v6-1'] },        // Kevin ↔ Sarah
+    { otherId: 7, sharedVehicleIds: ['v6-2'] },        // Kevin ↔ Lisa (cousin)
+  ],
+  7: [
+    { otherId: 6, sharedVehicleIds: ['v7-1'] },        // Lisa ↔ Kevin
+    { otherId: 9, sharedVehicleIds: ['v7-2'] },        // Lisa ↔ Patricia (mother)
+  ],
+  9: [
+    { otherId: 7, sharedVehicleIds: [] },              // Patricia ↔ Lisa
+    { otherId: 10, sharedVehicleIds: ['v9-1'] },       // Patricia ↔ James (spouse)
+  ],
+  10: [
+    { otherId: 9, sharedVehicleIds: ['v10-1'] },       // James ↔ Patricia
+  ],
+};
+
+// ─── DOB / DATE HELPERS ──────────────────────────────────────────────────────
+const fmtDobDisplay = (iso) => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[m-1]} ${String(d).padStart(2,'0')}, ${y}`;
+};
+
+// ─── MINI DATE PICKER (for DOB editing) ──────────────────────────────────────
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW_SHORT   = ['S','M','T','W','T','F','S'];
+
+const MiniDatePicker = ({ value, onSelect, onClose }) => {
+  // value is YYYY-MM-DD or ''. Default view: that month, else today.
+  const today = new Date();
+  let initY, initM;
+  if (value) {
+    const [y, m] = value.split('-').map(Number);
+    initY = y; initM = (m || 1) - 1;
+  } else {
+    initY = today.getFullYear(); initM = today.getMonth();
+  }
+  const [viewY, setViewY] = useState(initY);
+  const [viewM, setViewM] = useState(initM);
+  const popRef = React.useRef(null);
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (popRef.current && !popRef.current.contains(e.target)) onClose && onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const prevMonth = () => {
+    if (viewM === 0) { setViewM(11); setViewY(viewY - 1); }
+    else setViewM(viewM - 1);
+  };
+  const nextMonth = () => {
+    if (viewM === 11) { setViewM(0); setViewY(viewY + 1); }
+    else setViewM(viewM + 1);
+  };
+
+  // Build grid for the view month
+  const firstDayDow = new Date(viewY, viewM, 1).getDay();
+  const daysInMonth = new Date(viewY, viewM + 1, 0).getDate();
+  const daysInPrev  = new Date(viewY, viewM,     0).getDate();
+
+  const cells = [];
+  for (let i = firstDayDow - 1; i >= 0; i--) {
+    cells.push({ day: daysInPrev - i, muted: true, y: viewM === 0 ? viewY - 1 : viewY, m: viewM === 0 ? 11 : viewM - 1 });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, muted: false, y: viewY, m: viewM });
+  }
+  while (cells.length % 7 !== 0 || cells.length < 42) {
+    const last = cells[cells.length - 1];
+    if (cells.length >= 42) break;
+    const nextDay = last.muted && last.m === viewM ? last.day + 1 : (cells[cells.length - 1].muted ? 1 : cells.length - firstDayDow - daysInMonth + 1);
+    cells.push({ day: nextDay, muted: true, y: viewM === 11 ? viewY + 1 : viewY, m: viewM === 11 ? 0 : viewM + 1 });
+  }
+
+  const selectedIso = value || null;
+
+  const pick = (cell) => {
+    const iso = `${cell.y}-${String(cell.m + 1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`;
+    onSelect && onSelect(iso);
+  };
+
+  const now = new Date();
+  const yearOptions = [];
+  for (let y = now.getFullYear(); y >= 1925; y--) yearOptions.push(y);
+
+  return (
+    <div className="tp-cal-pop" ref={popRef} onClick={e => e.stopPropagation()}>
+      <div className="tp-cal-head">
+        <button className="tp-cal-nav" onClick={prevMonth} title="Previous month">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M10 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <div className="tp-cal-selects">
+          <select className="tp-cal-select" value={viewM} onChange={e => setViewM(parseInt(e.target.value, 10))}>
+            {MONTH_NAMES.map((mn, i) => <option key={i} value={i}>{mn}</option>)}
+          </select>
+          <select className="tp-cal-select" value={viewY} onChange={e => setViewY(parseInt(e.target.value, 10))}>
+            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <button className="tp-cal-nav" onClick={nextMonth} title="Next month">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      </div>
+      <div className="tp-cal-grid">
+        {DOW_SHORT.map((d, i) => <div key={'dow'+i} className="tp-cal-dow">{d}</div>)}
+        {cells.slice(0, 42).map((cell, i) => {
+          const iso = `${cell.y}-${String(cell.m + 1).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`;
+          const isSelected = selectedIso === iso;
+          return (
+            <button key={i}
+              className={`tp-cal-day ${cell.muted ? 'muted' : ''} ${isSelected ? 'selected' : ''}`}
+              onClick={() => pick(cell)}
+            >{cell.day}</button>
+          );
+        })}
+      </div>
+      <div className="tp-cal-foot">
+        <button className="tp-cal-foot-btn" onClick={() => onSelect && onSelect('')}>Clear</button>
+        <button className="tp-cal-foot-btn" onClick={onClose}>Close</button>
+      </div>
+    </div>
+  );
+};
+
 // ─── TOUCHPOINTS SCREEN ──────────────────────────────────────────────────────
 const TouchPointsScreen = () => {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(1);
-  const [collapsed, setCollapsed] = useState({ transactions:false, conversions:false, engagements:false });
+  const [collapsed, setCollapsed] = useState({ transactions:false, conversions:false, engagements:false, vehicles:false, associated:false });
+  const [vehiclesMap, setVehiclesMap]   = useState(INITIAL_VEHICLES);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [newVehicle, setNewVehicle] = useState({ vin:'', year:'', make:'', model:'', purchaseDate:'', lastServiceDate:'', tradeDate:'' });
+
+  // Associated-contacts state
+  const [contactPropsMap, setContactPropsMap] = useState(INITIAL_CONTACT_PROPS);
+  const [associationsMap, setAssociationsMap] = useState(INITIAL_ASSOCIATIONS);
+  const [showAddContact, setShowAddContact]   = useState(false);
+  const [editing, setEditing] = useState({ contactId:null, field:null }); // field: 'email' | 'dob' | null
+  const [emailDraft, setEmailDraft] = useState('');
+
+  // Reset add-form when switching customers
+  React.useEffect(() => {
+    setShowAddVehicle(false);
+    setNewVehicle({ vin:'', year:'', make:'', model:'', purchaseDate:'', lastServiceDate:'', tradeDate:'' });
+    setShowAddContact(false);
+    setEditing({ contactId:null, field:null });
+  }, [selectedId]);
+
+  const customerVehicles = vehiclesMap[selectedId] || [];
+
+  const toggleOwnership = (vehicleId) => {
+    setVehiclesMap(prev => ({
+      ...prev,
+      [selectedId]: (prev[selectedId] || []).map(v => v.id === vehicleId ? {...v, owned: !v.owned} : v)
+    }));
+  };
+
+  const removeVehicle = (vehicleId) => {
+    setVehiclesMap(prev => ({
+      ...prev,
+      [selectedId]: (prev[selectedId] || []).filter(v => v.id !== vehicleId)
+    }));
+  };
+
+  const addVehicle = () => {
+    if (!newVehicle.vin.trim()) return;
+    const id = 'v-' + Date.now();
+    setVehiclesMap(prev => ({
+      ...prev,
+      [selectedId]: [...(prev[selectedId] || []), {
+        id,
+        vin:             newVehicle.vin.trim().toUpperCase(),
+        year:            newVehicle.year.trim(),
+        make:            newVehicle.make.trim(),
+        model:           newVehicle.model.trim(),
+        purchaseDate:    newVehicle.purchaseDate.trim() || null,
+        lastServiceDate: newVehicle.lastServiceDate.trim() || null,
+        tradeDate:       newVehicle.tradeDate.trim() || null,
+        owned:           true,
+      }]
+    }));
+    setNewVehicle({ vin:'', year:'', make:'', model:'', purchaseDate:'', lastServiceDate:'', tradeDate:'' });
+    setShowAddVehicle(false);
+  };
+
+  // ── Associated-contact helpers ────────────────────────────────────────
+  const customerAssociations = associationsMap[selectedId] || [];
+  const getContactProps = (id) => contactPropsMap[id] || { email:'', dob:'' };
+
+  // Update a contact's own property (email / dob). Reflected on every screen
+  // that displays this contact (since props are keyed by contactId).
+  const updateContactProp = (id, field, val) => {
+    setContactPropsMap(prev => ({ ...prev, [id]: { ...(prev[id] || {email:'', dob:''}), [field]: val } }));
+  };
+
+  // Associate `otherId` to the currently-selected contact (and mirror in reverse).
+  const associateContact = (otherId) => {
+    if (otherId === selectedId) return;
+    setAssociationsMap(prev => {
+      const next = { ...prev };
+      const a = (next[selectedId] || []).filter(x => x.otherId !== otherId);
+      next[selectedId] = [...a, { otherId, sharedVehicleIds: [] }];
+      const b = (next[otherId] || []).filter(x => x.otherId !== selectedId);
+      next[otherId] = [...b, { otherId: selectedId, sharedVehicleIds: [] }];
+      return next;
+    });
+    setShowAddContact(false);
+  };
+
+  // Remove the association between `otherId` and the selected contact (both sides).
+  const removeAssociation = (otherId) => {
+    setAssociationsMap(prev => {
+      const next = { ...prev };
+      next[selectedId] = (next[selectedId] || []).filter(x => x.otherId !== otherId);
+      next[otherId]    = (next[otherId]    || []).filter(x => x.otherId !== selectedId);
+      return next;
+    });
+  };
+
+  // Toggle whether `vehicleId` (owned by selectedId) is shared with `otherId`.
+  // Stored on the selectedId-side entry only — represents "this contact's
+  // vehicles shared with that contact".
+  const toggleSharedVehicle = (otherId, vehicleId) => {
+    setAssociationsMap(prev => {
+      const next = { ...prev };
+      next[selectedId] = (next[selectedId] || []).map(x => {
+        if (x.otherId !== otherId) return x;
+        const has = x.sharedVehicleIds.includes(vehicleId);
+        return { ...x, sharedVehicleIds: has ? x.sharedVehicleIds.filter(v => v !== vehicleId) : [...x.sharedVehicleIds, vehicleId] };
+      });
+      return next;
+    });
+  };
+
+  // Candidates to add: all customers except self and already-associated.
+  const candidateContacts = CX_CUSTOMERS.filter(c =>
+    c.id !== selectedId && !customerAssociations.some(a => a.otherId === c.id)
+  );
+
+  // Vehicles shared INTO the selected contact (from any associated contact's
+  // record). The vehicle still lives in the original owner's Vehicles object —
+  // we just project it here so the household-shared vehicle appears on both
+  // contacts' records.
+  const getSharedInVehicles = (contactId) => {
+    const result = [];
+    Object.keys(associationsMap).forEach(ownerIdStr => {
+      const ownerId = parseInt(ownerIdStr, 10);
+      if (ownerId === contactId) return;
+      const link = (associationsMap[ownerId] || []).find(a => a.otherId === contactId);
+      if (!link || !link.sharedVehicleIds.length) return;
+      const ownerVehicles = vehiclesMap[ownerId] || [];
+      const owner = CX_CUSTOMERS.find(c => c.id === ownerId);
+      link.sharedVehicleIds.forEach(vid => {
+        const v = ownerVehicles.find(x => x.id === vid);
+        if (v) result.push({ ...v, _sharedFrom: owner });
+      });
+    });
+    return result;
+  };
+  const customerSharedInVehicles = getSharedInVehicles(selectedId);
+  const allVehiclesForDisplay = [...customerVehicles, ...customerSharedInVehicles];
+
+  // Calendar-popover anchoring (position: fixed so the popover never gets clipped
+  // by the scrolling right panel — and opens upward when there isn't room below).
+  const [dobAnchor, setDobAnchor] = useState(null);
+
+  const openDobPicker = (e, otherId) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const POP_H = 300, POP_W = 240;
+    const vh = window.innerHeight, vw = window.innerWidth;
+    let top;
+    if (rect.top >= POP_H + 8)            top = rect.top - POP_H - 4;     // above
+    else if (vh - rect.bottom >= POP_H+8) top = rect.bottom + 4;          // below
+    else                                   top = Math.max(8, vh - POP_H - 8);
+    let left = rect.right - POP_W;
+    if (left < 8) left = 8;
+    if (left + POP_W > vw - 8) left = vw - POP_W - 8;
+    setDobAnchor({ top, left });
+    setEditing({ contactId: otherId, field: 'dob' });
+  };
+  const closeDobPicker = () => { setDobAnchor(null); setEditing({ contactId:null, field:null }); };
 
   const q = (search || '').trim().toLowerCase();
   const filteredCustomers = !q ? CX_CUSTOMERS : CX_CUSTOMERS.filter(c =>
@@ -3341,10 +4180,344 @@ const TouchPointsScreen = () => {
                 </div>
               )}
             </div>
+
+            {/* Vehicles group */}
+            <div>
+              <div className="tp-group-head" onClick={() => setCollapsed(s => ({...s, vehicles: !s.vehicles}))}>
+                <span className="tp-group-head-label">Vehicles</span>
+                <div className="tp-group-head-actions">
+                  <button
+                    className="tp-add-vehicle-btn"
+                    title="Add vehicle"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setShowAddVehicle(v => !v);
+                      setCollapsed(s => ({...s, vehicles: false}));
+                    }}
+                  >
+                    <Icon name="plus" size={11}/>
+                  </button>
+                  <span style={{opacity:0.5, transform: collapsed.vehicles ? 'rotate(-90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
+                    <Icon name="chevronDown" size={13}/>
+                  </span>
+                </div>
+              </div>
+              {!collapsed.vehicles && (
+                <div className="tp-group-body">
+                  {allVehiclesForDisplay.map(v => {
+                    const sharedIn = !!v._sharedFrom;
+                    return (
+                    <div className="tp-group-row tp-vehicle-row" key={v.id + (sharedIn ? '_shared-from-'+v._sharedFrom.id : '')}>
+                      <div className="tp-vehicle-header">
+                        <div className="tp-vehicle-vin">{v.vin}</div>
+                        {!sharedIn && (
+                          <button
+                            className="tp-vehicle-remove-btn"
+                            onClick={() => removeVehicle(v.id)}
+                            title="Remove vehicle"
+                          >
+                            <Icon name="close" size={11}/>
+                          </button>
+                        )}
+                      </div>
+                      <div className="tp-vehicle-ymm">{[v.year, v.make, v.model].filter(Boolean).join(' ') || 'Vehicle details unavailable'}</div>
+                      {sharedIn && (
+                        <div className="tp-vehicle-shared-note">
+                          <Icon name="accountCheck" size={11}/>
+                          <span>Shared from {v._sharedFrom.name}</span>
+                        </div>
+                      )}
+                      <div className="tp-vehicle-body" style={sharedIn ? {marginTop:10} : null}>
+                        <div className="tp-vehicle-icon-col">
+                          <div className={`tp-group-row-icon ${sharedIn ? 'azure' : 'amber'}`}>
+                            <Icon name="car" size={20}/>
+                          </div>
+                          {sharedIn ? (
+                            <span className="tp-vehicle-badge shared" title={`Shared from ${v._sharedFrom.name}`}>Shared</span>
+                          ) : (
+                            <button
+                              className={`tp-vehicle-badge ${v.owned ? 'owned' : 'traded'}`}
+                              onClick={() => toggleOwnership(v.id)}
+                              title="Click to toggle ownership status"
+                            >
+                              {v.owned ? 'Owned' : 'Traded'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="tp-vehicle-dates">
+                          <div className="tp-vehicle-date-item">
+                            <span className="tp-vehicle-date-lbl">Purchase Date:</span>
+                            <span className={`tp-vehicle-date-val${v.purchaseDate ? '' : ' empty'}`}>{fmtVehicleDate(v.purchaseDate) || '—'}</span>
+                          </div>
+                          <div className="tp-vehicle-date-item">
+                            <span className="tp-vehicle-date-lbl">Last Service:</span>
+                            <span className={`tp-vehicle-date-val${v.lastServiceDate ? '' : ' empty'}`}>{fmtVehicleDate(v.lastServiceDate) || '—'}</span>
+                          </div>
+                          <div className="tp-vehicle-date-item">
+                            <span className="tp-vehicle-date-lbl">Trade Date:</span>
+                            <span className={`tp-vehicle-date-val${v.tradeDate ? '' : ' empty'}`}>{fmtVehicleDate(v.tradeDate) || '—'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  })}
+                  {allVehiclesForDisplay.length === 0 && !showAddVehicle && (
+                    <div style={{padding:'16px 14px', textAlign:'center', opacity:0.4}}>
+                      <div style={{fontSize:11, fontFamily:'var(--font-subheading)'}}>No vehicles on file</div>
+                    </div>
+                  )}
+                  {showAddVehicle && (
+                    <div className="tp-add-vehicle-form">
+                      <div className="tp-avf-group">
+                        <label className="tp-avf-label">VIN</label>
+                        <input
+                          className="tp-avf-input"
+                          placeholder="e.g. 1HGCM82633A004352"
+                          value={newVehicle.vin}
+                          onChange={e => setNewVehicle(p => ({...p, vin: e.target.value}))}
+                          maxLength={17}
+                          style={{textTransform:'uppercase', fontFamily:'monospace'}}
+                        />
+                      </div>
+                      <div className="tp-avf-row tp-avf-3col">
+                        <div className="tp-avf-group">
+                          <label className="tp-avf-label">Year</label>
+                          <input className="tp-avf-input" placeholder="2024" value={newVehicle.year}
+                            onChange={e => setNewVehicle(p => ({...p, year: e.target.value}))} maxLength={4}/>
+                        </div>
+                        <div className="tp-avf-group">
+                          <label className="tp-avf-label">Make</label>
+                          <input className="tp-avf-input" placeholder="Honda" value={newVehicle.make}
+                            onChange={e => setNewVehicle(p => ({...p, make: e.target.value}))}/>
+                        </div>
+                        <div className="tp-avf-group">
+                          <label className="tp-avf-label">Model</label>
+                          <input className="tp-avf-input" placeholder="Accord" value={newVehicle.model}
+                            onChange={e => setNewVehicle(p => ({...p, model: e.target.value}))}/>
+                        </div>
+                      </div>
+                      <div className="tp-avf-row tp-avf-3col">
+                        <div className="tp-avf-group">
+                          <label className="tp-avf-label">Purchase Date</label>
+                          <input className="tp-avf-input" placeholder="01/15/2024" value={newVehicle.purchaseDate}
+                            onChange={e => setNewVehicle(p => ({...p, purchaseDate: e.target.value}))}/>
+                        </div>
+                        <div className="tp-avf-group">
+                          <label className="tp-avf-label">Last Service</label>
+                          <input className="tp-avf-input" placeholder="04/23/2026" value={newVehicle.lastServiceDate}
+                            onChange={e => setNewVehicle(p => ({...p, lastServiceDate: e.target.value}))}/>
+                        </div>
+                        <div className="tp-avf-group">
+                          <label className="tp-avf-label">Trade Date</label>
+                          <input className="tp-avf-input" placeholder="MM/DD/YYYY (optional)" value={newVehicle.tradeDate}
+                            onChange={e => setNewVehicle(p => ({...p, tradeDate: e.target.value}))}/>
+                        </div>
+                      </div>
+                      <div className="tp-avf-actions">
+                        <button className="tp-avf-btn-cancel" onClick={() => {
+                          setShowAddVehicle(false);
+                          setNewVehicle({ vin:'', year:'', make:'', model:'', purchaseDate:'', lastServiceDate:'', tradeDate:'' });
+                        }}>Cancel</button>
+                        <button
+                          className="tp-avf-btn-add"
+                          onClick={addVehicle}
+                          disabled={!newVehicle.vin.trim()}
+                        >Add Vehicle</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Associated Contacts group */}
+            <div>
+              <div className="tp-group-head" onClick={() => setCollapsed(s => ({...s, associated: !s.associated}))}>
+                <span className="tp-group-head-label">Associated Contacts</span>
+                <div className="tp-group-head-actions">
+                  <button
+                    className="tp-add-vehicle-btn"
+                    title="Associate contact"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setShowAddContact(v => !v);
+                      setCollapsed(s => ({...s, associated: false}));
+                    }}
+                  >
+                    <Icon name="plus" size={11}/>
+                  </button>
+                  <span style={{opacity:0.5, transform: collapsed.associated ? 'rotate(-90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
+                    <Icon name="chevronDown" size={13}/>
+                  </span>
+                </div>
+              </div>
+              {!collapsed.associated && (
+                <div className="tp-assoc-stack">
+                  {customerAssociations.map(assoc => {
+                    const other = CX_CUSTOMERS.find(c => c.id === assoc.otherId);
+                    if (!other) return null;
+                    const props = getContactProps(other.id);
+                    const isEditingEmail = editing.contactId === other.id && editing.field === 'email';
+                    const isEditingDob   = editing.contactId === other.id && editing.field === 'dob';
+                    return (
+                      <div className="tp-contact-card" key={other.id}>
+                        {/* Header: contact tile mirroring TouchPoints list item */}
+                        <div className="tp-contact-header">
+                          <div className="tp-contact-av">{other.initials}</div>
+                          <div style={{minWidth:0, flex:1}}>
+                            <div className="tp-contact-name">{other.name}</div>
+                            <div className="tp-contact-phone">{other.phone}</div>
+                          </div>
+                          <button
+                            className="tp-vehicle-remove-btn"
+                            onClick={() => removeAssociation(other.id)}
+                            title="Disassociate contact"
+                            style={{opacity: 1}}
+                          >
+                            <Icon name="close" size={11}/>
+                          </button>
+                        </div>
+
+                        {/* Editable Email + DOB */}
+                        <div className="tp-contact-props">
+                          {/* Email row */}
+                          <div className="tp-contact-prop-row">
+                            <span className="tp-contact-prop-icon"><Icon name="mail" size={13}/></span>
+                            <span className="tp-contact-prop-lbl">Email</span>
+                            {isEditingEmail ? (
+                              <input
+                                type="email"
+                                className="tp-contact-prop-input"
+                                value={emailDraft}
+                                placeholder="name@example.com"
+                                autoFocus
+                                onChange={e => setEmailDraft(e.target.value)}
+                                onBlur={() => {
+                                  updateContactProp(other.id, 'email', emailDraft.trim());
+                                  setEditing({ contactId:null, field:null });
+                                }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                    updateContactProp(other.id, 'email', emailDraft.trim());
+                                    setEditing({ contactId:null, field:null });
+                                  } else if (e.key === 'Escape') {
+                                    setEditing({ contactId:null, field:null });
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <button
+                                className={`tp-contact-prop-val${props.email ? '' : ' empty'}`}
+                                onClick={() => {
+                                  setEmailDraft(props.email || '');
+                                  setEditing({ contactId: other.id, field: 'email' });
+                                }}
+                                title="Click to edit email"
+                              >{props.email || 'Add email…'}</button>
+                            )}
+                          </div>
+
+                          {/* DOB row */}
+                          <div className="tp-contact-prop-row">
+                            <span className="tp-contact-prop-icon"><Icon name="calendarCheck" size={13}/></span>
+                            <span className="tp-contact-prop-lbl">DOB</span>
+                            <button
+                              className={`tp-contact-prop-val${props.dob ? '' : ' empty'}`}
+                              onClick={(e) => isEditingDob ? closeDobPicker() : openDobPicker(e, other.id)}
+                              title="Click to set date of birth"
+                            >{props.dob ? fmtDobDisplay(props.dob) : 'Set date of birth…'}</button>
+                          </div>
+                        </div>
+
+                        {/* Shared vehicles section */}
+                        <div className="tp-contact-shared">
+                          <div className="tp-contact-shared-lbl">
+                            <Icon name="car" size={11}/>
+                            <span>Shared Vehicles</span>
+                          </div>
+                          {customerVehicles.length === 0 && (
+                            <div className="tp-contact-shared-empty">No vehicles on this contact to share.</div>
+                          )}
+                          {customerVehicles.map(v => {
+                            const shared = assoc.sharedVehicleIds.includes(v.id);
+                            return (
+                              <div
+                                key={v.id}
+                                className={`tp-contact-share-row${shared ? ' is-shared' : ''}`}
+                                onClick={() => toggleSharedVehicle(other.id, v.id)}
+                                title={shared ? 'Click to un-share' : 'Click to share with this contact'}
+                              >
+                                <span className="tp-contact-share-check">
+                                  {shared && (
+                                    <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
+                                      <path d="M2.5 6.2l2.4 2.3L9.5 3.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                  )}
+                                </span>
+                                <div className="tp-contact-share-text">
+                                  <div className="tp-contact-share-ymm">{[v.year, v.make, v.model].filter(Boolean).join(' ') || 'Vehicle'}</div>
+                                  <div className="tp-contact-share-vin">{v.vin}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {customerAssociations.length === 0 && !showAddContact && (
+                    <div style={{padding:'16px 14px', textAlign:'center', opacity:0.4, border:'1px dashed var(--card-border)', borderRadius:10}}>
+                      <div style={{fontSize:11, fontFamily:'var(--font-subheading)'}}>No associated contacts</div>
+                    </div>
+                  )}
+
+                  {showAddContact && (
+                    <div className="tp-add-vehicle-form tp-contact-card" style={{padding:'12px 14px 14px'}}>
+                      <div className="tp-avf-group">
+                        <label className="tp-avf-label">Choose a contact to associate</label>
+                        <div className="tp-acf-options">
+                          {candidateContacts.length === 0 ? (
+                            <div className="tp-acf-empty">All other contacts are already associated.</div>
+                          ) : candidateContacts.map(c => (
+                            <div className="tp-acf-option" key={c.id} onClick={() => associateContact(c.id)}>
+                              <div className="tp-contact-av">{c.initials}</div>
+                              <div style={{minWidth:0, flex:1}}>
+                                <div className="tp-contact-name">{c.name}</div>
+                                <div className="tp-contact-phone">{c.phone}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="tp-avf-actions">
+                        <button className="tp-avf-btn-cancel" onClick={() => setShowAddContact(false)}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
 
       </div>
+
+      {/* Floating DOB picker (position: fixed so it never gets clipped) */}
+      {editing.field === 'dob' && editing.contactId != null && dobAnchor && (
+        <div style={{position:'fixed', top: dobAnchor.top, left: dobAnchor.left, zIndex: 200}}>
+          <MiniDatePicker
+            value={getContactProps(editing.contactId).dob}
+            onSelect={(iso) => {
+              updateContactProp(editing.contactId, 'dob', iso);
+              closeDobPicker();
+            }}
+            onClose={closeDobPicker}
+          />
+        </div>
+      )}
     </div>
   );
 };
@@ -3670,16 +4843,27 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const showDataPoints= report.showDataPoints || false;
   const xAxis         = report.xAxis        || '';
   const tableColumns  = report.tableColumns || [];
+  const yScale        = report.yScale       || 'linear';
+  const xAxisLabel    = report.xAxisLabel   || '';
+  const yAxisLabel    = report.yAxisLabel   || '';
+  const showXAxisLabel= report.showXAxisLabel || false;
+  const showYAxisLabel= report.showYAxisLabel || false;
   const db            = DATABASES.find(d => d.id === report.db);
   const currentTable  = db?.tables?.find(t => t.name === report.table) || db?.tables?.[0];
 
   const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
   const getSeriesColor = (i) => seriesColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
   // Per-series sizing — mirrors the Report Builder mapping
-  const MRC_BAR_SIZE    = { sm: 10, md: 18, lg: 30 };
-  const MRC_STROKE_SIZE = { sm: 1.5, md: 2.5, lg: 4 };
+  const MRC_BAR_SIZE    = { sm: 18, md: 34, lg: 56 };
+  const MRC_STROKE_SIZE = { sm: 1.5, md: 3, lg: 6 };
   const getBarSize    = (i) => MRC_BAR_SIZE[seriesSizes[i] || 'md'] || MRC_BAR_SIZE.md;
   const getStrokeSize = (i) => MRC_STROKE_SIZE[seriesSizes[i] || 'md'] || MRC_STROKE_SIZE.md;
+  // Y-axis scale props mirroring the Report Builder
+  const mrcScaleProps = yScale === 'log'
+    ? { scale: 'log', domain: ['auto','auto'], allowDataOverflow: true }
+    : yScale === 'pow'
+      ? { scale: 'sqrt', domain: [0,'auto'] }
+      : { scale: 'linear', domain: [0,'auto'] };
 
   const formatYValue = (v) => {
     if (yAxisFormat === 'currency') return `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`;
@@ -3758,6 +4942,16 @@ const MiniReportChart = ({ report, chartStyle }) => {
     const col = currentTable.cols?.find(c => c.name === xAxis);
     return !col || col.type === 'date';
   })();
+
+  // Axis label props mirroring the Report Builder (only when toggled on)
+  const mrcXLabelText = xAxisLabel || xAxis || (xIsDate ? xDateGroup : 'Category');
+  const mrcYLabelText = yAxisLabel || (yMetrics[0] ? getMetricLabel(yMetrics[0], 0) : 'Value');
+  const mrcXLabelProp = showXAxisLabel
+    ? { value: mrcXLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600 } }
+    : undefined;
+  const mrcYLabelProp = showYAxisLabel
+    ? { value: mrcYLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } }
+    : undefined;
 
   // Build the base "per X-tick" rows, then layer one s0..sN-1 key per metric
   const getBarData = () => {
@@ -3884,8 +5078,8 @@ const MiniReportChart = ({ report, chartStyle }) => {
             ))}
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={mrcXLabelProp}/>
+          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={mrcYLabelProp} {...mrcScaleProps}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name) => [formatYValue(v), name]}/>
           {effectiveMetrics.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m,i) => (
@@ -3909,8 +5103,8 @@ const MiniReportChart = ({ report, chartStyle }) => {
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={barData} layout="vertical" margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
-          <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
-          <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
+          <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={showYAxisLabel ? { value: mrcYLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600 } } : undefined} {...mrcScaleProps}/>
+          <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80} label={showXAxisLabel ? { value: mrcXLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } } : undefined}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
           {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m, i) => (
@@ -3933,10 +5127,10 @@ const MiniReportChart = ({ report, chartStyle }) => {
     });
     return (
       <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={comboData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
+        <ComposedChart data={comboData} margin={{top:showDataPoints?20:8,right:8,left:showYAxisLabel?6:-10,bottom:showXAxisLabel?22:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={mrcXLabelProp}/>
+          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={mrcYLabelProp} {...mrcScaleProps}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name) => [formatYValue(v), name]}/>
           <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
           {yMetrics.map((m, i) => {
@@ -3965,10 +5159,10 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum', comboType:'bar'}];
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
+      <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:showYAxisLabel?6:-10,bottom:showXAxisLabel?22:0}}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-        <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-        <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+        <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={mrcXLabelProp}/>
+        <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={mrcYLabelProp} {...mrcScaleProps}/>
         <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
         {effectiveMetrics.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
         {effectiveMetrics.map((m, i) => (
@@ -5817,6 +7011,13 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
   const [yAxisFormat, setYAxisFormat] = useState(editReport?.yAxisFormat || 'number');
   const [legendPos, setLegendPos] = useState(editReport?.legendPos || 'bottom');
   const [showDataPoints, setShowDataPoints] = useState(editReport?.showDataPoints || false);
+  // Y-axis scale type: 'linear' | 'pow' (power / square-root) | 'log'
+  const [yScale, setYScale] = useState(editReport?.yScale || 'linear');
+  // Axis labels — custom text + on/off visibility
+  const [xAxisLabel, setXAxisLabel] = useState(editReport?.xAxisLabel ?? '');
+  const [yAxisLabel, setYAxisLabel] = useState(editReport?.yAxisLabel ?? '');
+  const [showXAxisLabel, setShowXAxisLabel] = useState(editReport?.showXAxisLabel ?? false);
+  const [showYAxisLabel, setShowYAxisLabel] = useState(editReport?.showYAxisLabel ?? false);
 
   // Helper: get color for a series index, falling back through defaults
   const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
@@ -5828,6 +7029,15 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     return next;
   });
 
+  // Recharts YAxis scale prop + domain. 'pow' uses a sqrt-style power scale
+  // which (like Metabase) compresses large outliers so smaller series stay
+  // visible; 'log' uses a log scale (needs a positive, non-zero domain).
+  const getYAxisScaleProps = () => {
+    if (yScale === 'log') return { scale: 'log', domain: ['auto', 'auto'], allowDataOverflow: true };
+    if (yScale === 'pow') return { scale: 'sqrt', domain: [0, 'auto'] };
+    return { scale: 'linear', domain: [0, 'auto'] };
+  };
+
   // Per-series sizing — 'md' is the default. Maps to a bar width (px) and a
   // line/area stroke width (px) used by the chart renderers.
   const getSeriesSize = (i) => seriesSizes[i] || 'md';
@@ -5837,7 +7047,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     next[i] = size;
     return next;
   });
-  const BAR_SIZE_PX    = { sm: 12, md: 22, lg: 38 };
+  const BAR_SIZE_PX    = { sm: 24, md: 44, lg: 72 };
   const STROKE_SIZE_PX = { sm: 1.5, md: 3, lg: 6 };
   const getBarSize    = (i) => BAR_SIZE_PX[getSeriesSize(i)] || BAR_SIZE_PX.md;
   const getStrokeSize = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
@@ -6083,16 +7293,31 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
 
   const renderPreview = () => {
     const axisStyle = {background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'};
+    // Axis label props — Recharts <Label> objects, only when toggled on.
+    const xLabelText = xAxisLabel || xAxis || (xIsDate ? xDateGroup : 'Category');
+    const yLabelText = yAxisLabel || (yMetrics[0] ? getMetricLabel(yMetrics[0], 0) : 'Value');
+    const xAxisLabelProp = showXAxisLabel
+      ? { value: xLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600 } }
+      : undefined;
+    const yAxisLabelProp = showYAxisLabel
+      ? { value: yLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } }
+      : undefined;
+    const labelMargin = {
+      bottom: showXAxisLabel ? 22 : 0,
+      left:   showYAxisLabel ? 16 : 0,
+    };
+    const yScaleProps = getYAxisScaleProps();
+    const axisSig = `${yScale}|${showXAxisLabel}|${showYAxisLabel}|${xLabelText}|${yLabelText}`;
     if (chartType === 'bar') {
       const barData = getBarData();
       const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
+          <BarChart key={metricSig} data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:labelMargin.left,bottom:labelMargin.bottom}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+            <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -6107,13 +7332,20 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     if (chartType === 'row') {
       const barData = getBarData();
       const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
+      // Row chart is horizontal: value runs along X, categories along Y.
+      const rowXLabelProp = showYAxisLabel
+        ? { value: yLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600 } }
+        : undefined;
+      const rowYLabelProp = showXAxisLabel
+        ? { value: xLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } }
+        : undefined;
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
+          <BarChart key={metricSig} data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:showXAxisLabel?16:8,bottom:showYAxisLabel?22:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
-            <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
-            <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
+            <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={rowXLabelProp} {...yScaleProps}/>
+            <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80} label={rowYLabelProp}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -6135,13 +7367,13 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
         });
         return row;
       });
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
+          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:showYAxisLabel?6:-10,bottom:labelMargin.bottom}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -6163,10 +7395,10 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
         });
         return row;
       });
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
+          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:showYAxisLabel?6:-10,bottom:labelMargin.bottom}}>
             <defs>
               {effectiveMetrics.map((_, i) => (
                 <linearGradient key={i} id={`rbAreaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -6176,8 +7408,8 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               ))}
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -6200,13 +7432,13 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       });
       // Signature of all metrics — when ANY metric's field/agg/type changes,
       // this changes and forces Recharts to fully rebuild (no stale series cache).
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}:${m.comboType}`).join('|');
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}:${m.comboType}`).join('|') + '|' + axisSig;
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart key={metricSig} data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
+          <ComposedChart key={metricSig} data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:showYAxisLabel?6:-10,bottom:labelMargin.bottom}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
             {yMetrics.map((m, i) => {
@@ -6450,6 +7682,11 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               yAxisFormat,
               legendPos,
               showDataPoints,
+              yScale,
+              xAxisLabel,
+              yAxisLabel,
+              showXAxisLabel,
+              showYAxisLabel,
               savedAt: new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}),
             });
             navigate('library');
@@ -7475,7 +8712,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                 const isActive = curSize === opt.id;
                                 // visual preview bar/line for the option
                                 const previewThickness = sizeKind === 'bar'
-                                  ? {sm:6, md:11, lg:18}[opt.id]
+                                  ? {sm:9, md:16, lg:26}[opt.id]
                                   : {sm:2, md:4, lg:7}[opt.id];
                                 return (
                                   <button key={opt.id} onClick={()=>setSeriesSize(selectedSeriesIdx, opt.id)}
@@ -7531,6 +8768,99 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                   ))}
                 </div>
               </div>
+
+              {/* ── Y-Axis Scale (linear / power / log) ── */}
+              {['bar','row','line','area','combo'].includes(chartType) && (
+                <div className="form-group">
+                  <label className="form-label">Y-Axis Scale</label>
+                  <div style={{fontSize:'11px',color:'var(--text-tertiary)',marginBottom:6,lineHeight:1.4}}>
+                    Use Power or Log when one metric is far larger than another so smaller series stay visible.
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                    {[
+                      {id:'linear',label:'Linear',desc:'Even spacing'},
+                      {id:'pow',   label:'Power', desc:'Square-root'},
+                      {id:'log',   label:'Log',   desc:'Logarithmic'},
+                    ].map(opt => {
+                      const active = yScale === opt.id;
+                      return (
+                        <button key={opt.id} onClick={()=>setYScale(opt.id)}
+                          style={{
+                            padding:'7px 8px',borderRadius:'var(--radius-sm)',cursor:'pointer',textAlign:'center',
+                            border:`1.5px solid ${active?'var(--accent)':'var(--border)'}`,
+                            background: active?'var(--accent-light)':'var(--input-bg)',
+                            transition:'all 0.15s',
+                          }}>
+                          <div style={{fontSize:'12px',fontWeight:600,color:active?'var(--accent)':'var(--text-primary)'}}>{opt.label}</div>
+                          <div style={{fontSize:'9.5px',color:'var(--text-tertiary)',marginTop:2}}>{opt.desc}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {yScale === 'log' && (
+                    <div style={{fontSize:'10.5px',color:'var(--text-tertiary)',marginTop:6,fontStyle:'italic'}}>
+                      Log scale requires positive values; zero or negative points may not render.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Axis Labels (text + show/hide) ── */}
+              {['bar','row','line','area','combo'].includes(chartType) && (
+                <div className="form-group">
+                  <label className="form-label">Axis Labels</label>
+
+                  {/* X-axis label row */}
+                  <div style={{marginBottom:10}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
+                      <span style={{fontSize:'12px',fontWeight:500,color:'var(--text-secondary)'}}>X-Axis Label</span>
+                      <button onClick={()=>setShowXAxisLabel(v=>!v)}
+                        title={showXAxisLabel ? 'Label is shown — click to hide' : 'Label is hidden — click to show'}
+                        style={{
+                          position:'relative',width:38,height:21,borderRadius:11,border:'none',cursor:'pointer',flexShrink:0,
+                          background: showXAxisLabel ? 'var(--accent)' : 'var(--border)',
+                          transition:'background 0.15s',
+                        }}>
+                        <span style={{
+                          position:'absolute',top:2,left: showXAxisLabel ? 19 : 2,width:17,height:17,borderRadius:'50%',
+                          background:'#fff',transition:'left 0.15s',boxShadow:'0 1px 2px rgba(0,0,0,0.25)',
+                        }}/>
+                      </button>
+                    </div>
+                    <input className="form-input"
+                      style={{opacity: showXAxisLabel ? 1 : 0.5}}
+                      disabled={!showXAxisLabel}
+                      value={xAxisLabel}
+                      onChange={e=>setXAxisLabel(e.target.value)}
+                      placeholder={xAxis || (xIsDate ? xDateGroup : 'Category')}/>
+                  </div>
+
+                  {/* Y-axis label row */}
+                  <div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
+                      <span style={{fontSize:'12px',fontWeight:500,color:'var(--text-secondary)'}}>Y-Axis Label</span>
+                      <button onClick={()=>setShowYAxisLabel(v=>!v)}
+                        title={showYAxisLabel ? 'Label is shown — click to hide' : 'Label is hidden — click to show'}
+                        style={{
+                          position:'relative',width:38,height:21,borderRadius:11,border:'none',cursor:'pointer',flexShrink:0,
+                          background: showYAxisLabel ? 'var(--accent)' : 'var(--border)',
+                          transition:'background 0.15s',
+                        }}>
+                        <span style={{
+                          position:'absolute',top:2,left: showYAxisLabel ? 19 : 2,width:17,height:17,borderRadius:'50%',
+                          background:'#fff',transition:'left 0.15s',boxShadow:'0 1px 2px rgba(0,0,0,0.25)',
+                        }}/>
+                      </button>
+                    </div>
+                    <input className="form-input"
+                      style={{opacity: showYAxisLabel ? 1 : 0.5}}
+                      disabled={!showYAxisLabel}
+                      value={yAxisLabel}
+                      onChange={e=>setYAxisLabel(e.target.value)}
+                      placeholder={yMetrics[0] ? getMetricLabel(yMetrics[0], 0) : 'Value'}/>
+                  </div>
+                </div>
+              )}
 
               {/* ── Legend ── */}
               <div className="form-group">
