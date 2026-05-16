@@ -5710,23 +5710,23 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     return vals;
   };
 
-  // Dynamic bar/row preview data — responds to xAxis field and xIsDate
+  // Dynamic bar/row preview data — responds to xAxis field, xIsDate, and yMetrics agg
   const getBarData = () => {
+    const agg0 = yMetrics[0]?.agg || 'sum';
+    const agg1 = yMetrics[1]?.agg || 'sum';
+    const agg2 = yMetrics[2]?.agg || 'sum';
     // If X is a date field, use time-series data grouped by xDateGroup
     if (xIsDate) {
       return getTimeSeriesData().map(d => ({
         xLabel: d.label,
-        value:  d.leads,
-        value2: Math.round(d.leads * 0.72 + 15),
-        value3: Math.round(d.leads * 0.54 + 30),
+        value:  applyAgg(d.leads, agg0),
+        value2: applyAgg(Math.round(d.leads * 0.72 + 15), agg1),
+        value3: applyAgg(Math.round(d.leads * 0.54 + 30), agg2),
       }));
     }
     // If X is a string field, generate labelled categorical data named after the selected column
-    // Use up to 5 representative labels drawn from the column's known values if available,
-    // otherwise fall back to generic category names.
     const col = currentTable?.cols.find(c => c.name === xAxis);
     const colName = xAxis || 'Category';
-    // Try to pull distinct values from the DB's sample rows
     let labels = [];
     if (col && currentTable) {
       const colIdx = currentTable.cols.indexOf(col);
@@ -5743,9 +5743,9 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     const base = [124, 98, 87, 62, 53];
     return labels.slice(0, 5).map((lbl, i) => ({
       xLabel: lbl,
-      value:  base[i] * 1000,
-      value2: Math.round(base[i] * 0.72) * 1000,
-      value3: Math.round(base[i] * 0.54) * 1000,
+      value:  applyAgg(base[i] * 1000, agg0),
+      value2: applyAgg(Math.round(base[i] * 0.72) * 1000, agg1),
+      value3: applyAgg(Math.round(base[i] * 0.54) * 1000, agg2),
     }));
   };
 
@@ -5762,6 +5762,32 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     if (yAxisFormat === 'percent') return `${v}%`;
     if (yAxisFormat === 'compact') return v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`;
     return `${v}`;
+  };
+
+  // Apply aggregation transformation to a base numeric value for a given series/metric.
+  // Since preview data is sample-based, we simulate realistic agg variants:
+  //   count    → row count proxy (base / 1000, floored, min 1)
+  //   avg      → base / realistic divisor to simulate per-record average
+  //   min      → ~60% of base
+  //   max      → base (max is already the peak)
+  //   distinct → small integer proportional to base
+  //   stddev   → ~18% of base
+  //   cumsum   → base * 1.4 (running total grows)
+  //   cumcount → row-count proxy * 1.4
+  //   sum      → base as-is (sum is the default unit)
+  const applyAgg = (baseVal, agg) => {
+    switch (agg) {
+      case 'count':    return Math.max(1, Math.round(baseVal / 1000));
+      case 'avg':      return Math.round(baseVal / 42);
+      case 'min':      return Math.round(baseVal * 0.58);
+      case 'max':      return baseVal;
+      case 'distinct': return Math.max(1, Math.round(baseVal / 15000));
+      case 'stddev':   return Math.round(baseVal * 0.18);
+      case 'cumsum':   return Math.round(baseVal * 1.4);
+      case 'cumcount': return Math.max(1, Math.round((baseVal / 1000) * 1.4));
+      case 'sum':
+      default:         return baseVal;
+    }
   };
 
   // Generate sample time-series data that matches the selected xDateGroup
@@ -5852,7 +5878,12 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       );
     }
     if (chartType === 'line') {
-      const tsData = getTimeSeriesData();
+      const tsData = getTimeSeriesData().map(d => ({
+        label: d.label,
+        leads:   applyAgg(d.leads,   yMetrics[0]?.agg || 'sum'),
+        sales:   applyAgg(d.sales,   yMetrics[1]?.agg || 'sum'),
+        revenue: applyAgg(d.revenue, yMetrics[2]?.agg || 'sum'),
+      }));
       return (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
@@ -5872,7 +5903,12 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       );
     }
     if (chartType === 'area') {
-      const tsData = getTimeSeriesData();
+      const tsData = getTimeSeriesData().map(d => ({
+        label: d.label,
+        leads:   applyAgg(d.leads,   yMetrics[0]?.agg || 'sum'),
+        sales:   applyAgg(d.sales,   yMetrics[1]?.agg || 'sum'),
+        revenue: applyAgg(d.revenue, yMetrics[2]?.agg || 'sum'),
+      }));
       return (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
@@ -5913,7 +5949,8 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       const comboData = tsData.map(d => {
         const row = {label: d.label};
         yMetrics.forEach((m, i) => {
-          row[`series_${i}`] = seriesSeeds[i % seriesSeeds.length](d);
+          const baseVal = seriesSeeds[i % seriesSeeds.length](d);
+          row[`series_${i}`] = applyAgg(baseVal, m.agg || 'sum');
         });
         return row;
       });
@@ -5986,12 +6023,20 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     }
     if (chartType === 'number') {
       const kpiField = yMetrics[0]?.field || 'Row Count';
-      const aggLabel = {count:'Count of rows',sum:'Sum of',avg:'Avg of',distinct:'Distinct',min:'Min of',max:'Max of'}[yMetrics[0]?.agg || 'count'];
+      const agg = yMetrics[0]?.agg || 'count';
+      const aggLabel = {count:'Count of rows',sum:'Sum of',avg:'Average of',distinct:'Distinct values of',min:'Min of',max:'Max of',stddev:'Std dev of',cumsum:'Cumulative sum of',cumcount:'Cumulative count of rows'}[agg] || 'Count of rows';
       const kpiLabel = kpiField === 'Row Count' ? 'Total Row Count' : `${aggLabel} ${kpiField}`;
+      // Base value pools per agg for a realistic-looking KPI
+      const BASE_KPI = {count:15280, sum:4347036, avg:2840, min:158, max:589, distinct:47, stddev:312, cumsum:6083000, cumcount:21392};
+      const rawVal = BASE_KPI[agg] ?? 15280;
+      const kpiValue = yAxisFormat === 'currency' ? `$${rawVal >= 1000000 ? (rawVal/1000000).toFixed(2)+'M' : rawVal >= 1000 ? (rawVal/1000).toFixed(0)+'k' : rawVal}`
+        : yAxisFormat === 'percent' ? `${(rawVal / BASE_KPI.count * 100).toFixed(1)}%`
+        : yAxisFormat === 'compact' ? (rawVal >= 1000000 ? `${(rawVal/1000000).toFixed(1)}M` : rawVal >= 1000 ? `${(rawVal/1000).toFixed(0)}K` : `${rawVal}`)
+        : rawVal.toLocaleString();
       return (
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:8}}>
           <div style={{fontFamily:'var(--font-display)',fontSize:'64px',fontWeight:700,color:getSeriesColor(0),letterSpacing:'-2px',lineHeight:1}}>
-            {formatYValue(15280)}
+            {kpiValue}
           </div>
           <div style={{fontSize:'14px',color:'var(--text-secondary)',fontWeight:500}}>{kpiLabel}</div>
           <div className="kpi-delta up" style={{marginTop:4}}><Icon name="arrowUp" size={11}/>+18.4% vs last period</div>
@@ -5999,15 +6044,40 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       );
     }
     if (chartType === 'table') {
-      const cols = tableColumns.length > 0 ? tableColumns : ['Source','Est. Value'];
+      // Determine which columns to show: user selection or sensible default
+      // Default: first str column + Row Count (matching actual dataset)
+      const firstStrCol = currentTable?.cols.find(c => c.type === 'str');
+      const defaultCols = firstStrCol
+        ? [firstStrCol.name, 'Row Count']
+        : ['Row Count'];
+      const cols = tableColumns.length > 0 ? tableColumns : defaultCols;
+
+      // Build rows from actual DB rows
+      const dbRows = currentDB?.rows || [];
+      const colDefs = currentTable?.cols || [];
+
+      const getCellValue = (row, colName) => {
+        if (colName === 'Row Count') return null; // handled separately
+        const colIdx = colDefs.findIndex(c => c.name === colName);
+        if (colIdx === -1) return '—';
+        return row[colIdx] != null ? String(row[colIdx]) : '—';
+      };
+
+      // For Row Count column, show a sequential row number
+      const displayRows = dbRows.length > 0 ? dbRows : [];
+
       return (
         <div style={{overflowX:'auto',height:'100%',overflowY:'auto'}}>
           <table className="data-table">
             <thead><tr>{cols.map(c => <th key={c}>{c}</th>)}</tr></thead>
             <tbody>
-              {previewData.map((r,ri) => (
-                <tr key={ri}>{cols.map(c => <td key={c}>{c==='Row Count'?ri+1:c==='Source'?r.source:formatYValue(r.value)}</td>)}</tr>
-              ))}
+              {displayRows.length > 0 ? displayRows.map((row, ri) => (
+                <tr key={ri}>{cols.map(c => (
+                  <td key={c}>{c === 'Row Count' ? ri + 1 : getCellValue(row, c)}</td>
+                ))}</tr>
+              )) : (
+                <tr><td colSpan={cols.length} style={{textAlign:'center',color:'var(--text-tertiary)',padding:16}}>No data</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -6185,7 +6255,19 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               <div style={{padding:'0 4px'}}>
                 <div className="chart-type-grid">
                   {chartTypes.map(ct => (
-                    <div key={ct.id} className={`chart-type-option${chartType===ct.id?' selected':''}`} onClick={() => { setChartType(ct.id); setYMetrics([]); setXAxis(''); setActiveTarget('x'); setTableColumns([]); }}>
+                    <div key={ct.id} className={`chart-type-option${chartType===ct.id?' selected':''}`} onClick={() => {
+                      setChartType(ct.id);
+                      setYMetrics([]);
+                      setXAxis('');
+                      setActiveTarget('x');
+                      if (ct.id === 'table') {
+                        // Pre-select first str column + Row Count as sensible defaults
+                        const firstStr = currentTable?.cols.find(c => c.type === 'str');
+                        setTableColumns(firstStr ? [firstStr.name, 'Row Count'] : ['Row Count']);
+                      } else {
+                        setTableColumns([]);
+                      }
+                    }}>
                       <Icon name={ct.icon} size={18}/>
                       {ct.label}
                     </div>
