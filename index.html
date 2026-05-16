@@ -3664,6 +3664,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const chartType     = report.chartType    || 'bar';
   const yMetrics      = report.yMetrics     || [];
   const seriesColors  = report.seriesColors || ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6'];
+  const seriesSizes   = report.seriesSizes  || [];
   const xDateGroup    = report.xDateGroup   || 'Month';
   const yAxisFormat   = report.yAxisFormat  || 'number';
   const showDataPoints= report.showDataPoints || false;
@@ -3674,6 +3675,11 @@ const MiniReportChart = ({ report, chartStyle }) => {
 
   const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
   const getSeriesColor = (i) => seriesColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+  // Per-series sizing — mirrors the Report Builder mapping
+  const MRC_BAR_SIZE    = { sm: 10, md: 18, lg: 30 };
+  const MRC_STROKE_SIZE = { sm: 1.5, md: 2.5, lg: 4 };
+  const getBarSize    = (i) => MRC_BAR_SIZE[seriesSizes[i] || 'md'] || MRC_BAR_SIZE.md;
+  const getStrokeSize = (i) => MRC_STROKE_SIZE[seriesSizes[i] || 'md'] || MRC_STROKE_SIZE.md;
 
   const formatYValue = (v) => {
     if (yAxisFormat === 'currency') return `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`;
@@ -3884,7 +3890,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
           {effectiveMetrics.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m,i) => (
             <Area key={i} type="monotone" dataKey={`s${i}`}
-              stroke={getSeriesColor(i)} strokeWidth={2}
+              stroke={getSeriesColor(i)} strokeWidth={getStrokeSize(i)}
               fill={`url(#mrcGrad${i})`}
               dot={showDataPoints?{r:4,fill:getSeriesColor(i),strokeWidth:0}:false}
               activeDot={{r:5}}
@@ -3908,7 +3914,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
           {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m, i) => (
-            <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
+            <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
               {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
             </Bar>
           ))}
@@ -3939,15 +3945,15 @@ const MiniReportChart = ({ report, chartStyle }) => {
             const name = getMetricLabel(m, i);
             if (m.comboType === 'bar') {
               return (
-                <Bar key={key} dataKey={key} fill={color} radius={[3,3,0,0]} name={name}>
+                <Bar key={key} dataKey={key} fill={color} barSize={getBarSize(i)} radius={[3,3,0,0]} name={name}>
                   {showDataPoints && <LabelList dataKey={key} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
                 </Bar>
               );
             }
             if (m.comboType === 'area') {
-              return <Area key={key} type="monotone" dataKey={key} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} dot={showDataPoints?{r:4,fill:color,strokeWidth:0}:false} activeDot={{r:5}} name={name}/>;
+              return <Area key={key} type="monotone" dataKey={key} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={getStrokeSize(i)} dot={showDataPoints?{r:4,fill:color,strokeWidth:0}:false} activeDot={{r:5}} name={name}/>;
             }
-            return <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2} dot={showDataPoints?{r:4,fill:color,strokeWidth:0}:false} activeDot={{r:5}} name={name}/>;
+            return <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={getStrokeSize(i)} dot={showDataPoints?{r:4,fill:color,strokeWidth:0}:false} activeDot={{r:5}} name={name}/>;
           })}
         </ComposedChart>
       </ResponsiveContainer>
@@ -3970,6 +3976,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
             fill={chartStyle==='outlined'?'transparent':getSeriesColor(i)}
             stroke={getSeriesColor(i)}
             strokeWidth={chartStyle==='outlined'?1.5:0}
+            barSize={getBarSize(i)}
             radius={[4,4,0,0]}
             name={getMetricLabel(m, i)}>
             {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
@@ -5770,8 +5777,18 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
   const [xAxis, setXAxis] = useState(editReport?.xAxis || 'Make');
   // xDateGroup: 'Day'|'Week'|'Month'|'Quarter'|'Year'
   const [xDateGroup, setXDateGroup] = useState(editReport?.xDateGroup || 'Month');
-  // yMetrics: array of {field, agg, comboType} objects
-  const [yMetrics, setYMetrics] = useState(editReport?.yMetrics || [{field:'Year', agg:'count', comboType:'bar'}]);
+  // Stable unique id generator for metric objects so React keys / chart series
+  // identity stay attached to the right metric even after add/remove/reorder.
+  const midCounter = React.useRef(0);
+  const newMid = () => `m${Date.now().toString(36)}_${midCounter.current++}`;
+
+  // yMetrics: array of {mid, field, agg, comboType} objects
+  const [yMetrics, setYMetrics] = useState(
+    (editReport?.yMetrics && editReport.yMetrics.length
+      ? editReport.yMetrics
+      : [{field:'Year', agg:'count', comboType:'bar'}]
+    ).map((m, i) => m.mid ? m : { ...m, mid: `m_init_${i}` })
+  );
   const [groupBy, setGroupBy] = useState(editReport?.groupBy || []);
   const [filters, setFilters] = useState(editReport?.filters || []);
   const [step, setStep] = useState(1);
@@ -5794,6 +5811,8 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
   const [subtitle, setSubtitle] = useState(editReport?.subtitle || '');
   // seriesColors[i] = hex color for series/slice i
   const [seriesColors, setSeriesColors] = useState(editReport?.seriesColors || ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6']);
+  // seriesSizes[i] = 'sm' | 'md' | 'lg' — bar width / line thickness for series i
+  const [seriesSizes, setSeriesSizes] = useState(editReport?.seriesSizes || []);
   const [selectedSeriesIdx, setSelectedSeriesIdx] = useState(0);
   const [yAxisFormat, setYAxisFormat] = useState(editReport?.yAxisFormat || 'number');
   const [legendPos, setLegendPos] = useState(editReport?.legendPos || 'bottom');
@@ -5808,6 +5827,20 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     next[i] = hex;
     return next;
   });
+
+  // Per-series sizing — 'md' is the default. Maps to a bar width (px) and a
+  // line/area stroke width (px) used by the chart renderers.
+  const getSeriesSize = (i) => seriesSizes[i] || 'md';
+  const setSeriesSize = (i, size) => setSeriesSizes(prev => {
+    const next = [...prev];
+    while (next.length <= i) next.push('md');
+    next[i] = size;
+    return next;
+  });
+  const BAR_SIZE_PX    = { sm: 12, md: 22, lg: 38 };
+  const STROKE_SIZE_PX = { sm: 1.5, md: 2.5, lg: 4 };
+  const getBarSize    = (i) => BAR_SIZE_PX[getSeriesSize(i)] || BAR_SIZE_PX.md;
+  const getStrokeSize = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
 
   const onResizeMouseDown = (e) => {
     e.preventDefault();
@@ -5863,7 +5896,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
 
   const addYMetric = (field) => {
     const defaultAgg = field === 'Row Count' ? 'count' : 'sum';
-    setYMetrics(prev => [...prev, {field, agg: defaultAgg, comboType: 'bar'}]);
+    setYMetrics(prev => [...prev, {mid: newMid(), field, agg: defaultAgg, comboType: 'bar'}]);
   };
 
   const removeYMetric = (idx) => setYMetrics(prev => prev.filter((_,i) => i !== idx));
@@ -6034,16 +6067,17 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     if (chartType === 'bar') {
       const barData = getBarData();
       const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
+          <BarChart key={metricSig} data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} radius={[4,4,0,0]} name={getMetricLabel(m, i)}>
+              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[4,4,0,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
                 {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
             ))}
@@ -6054,16 +6088,17 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     if (chartType === 'row') {
       const barData = getBarData();
       const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
+          <BarChart key={metricSig} data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
             <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
+              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
                 {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
             ))}
@@ -6081,18 +6116,19 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
         });
         return row;
       });
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
+          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Area key={i} type="monotone" dataKey={`s${i}`} stroke={getSeriesColor(i)} strokeWidth={2} fill="transparent"
+              <Area key={m.mid || i} type="monotone" dataKey={`s${i}`} stroke={getSeriesColor(i)} strokeWidth={getStrokeSize(i)} fill="transparent"
                 dot={showDataPoints ? {r:4, fill:getSeriesColor(i), strokeWidth:0} : false}
-                activeDot={{r:5}} name={getMetricLabel(m, i)}/>
+                activeDot={{r:5}} name={getMetricLabel(m, i)} isAnimationActive={false}/>
             ))}
           </AreaChart>
         </ResponsiveContainer>
@@ -6108,9 +6144,10 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
         });
         return row;
       });
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
+          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
             <defs>
               {effectiveMetrics.map((_, i) => (
                 <linearGradient key={i} id={`rbAreaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -6125,9 +6162,9 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Area key={i} type="monotone" dataKey={`s${i}`} stroke={getSeriesColor(i)} strokeWidth={2} fill={`url(#rbAreaGrad${i})`}
+              <Area key={m.mid || i} type="monotone" dataKey={`s${i}`} stroke={getSeriesColor(i)} strokeWidth={getStrokeSize(i)} fill={`url(#rbAreaGrad${i})`}
                 dot={showDataPoints ? {r:4, fill:getSeriesColor(i), strokeWidth:0} : false}
-                activeDot={{r:5}} name={getMetricLabel(m, i)}/>
+                activeDot={{r:5}} name={getMetricLabel(m, i)} isAnimationActive={false}/>
             ))}
           </AreaChart>
         </ResponsiveContainer>
@@ -6142,9 +6179,12 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
         });
         return row;
       });
+      // Signature of all metrics — when ANY metric's field/agg/type changes,
+      // this changes and forces Recharts to fully rebuild (no stale series cache).
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}:${m.comboType}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
+          <ComposedChart key={metricSig} data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
@@ -6154,17 +6194,20 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               const key = `s${i}`;
               const color = getSeriesColor(i);
               const name = getMetricLabel(m, i);
+              // Key includes comboType so a bar↔line↔area switch fully remounts
+              // the series, and includes agg so a value change forces a re-render.
+              const reactKey = `${m.mid || i}-${m.comboType}-${m.agg}`;
               if (m.comboType === 'bar') {
                 return (
-                  <Bar key={key} dataKey={key} fill={color} radius={[3,3,0,0]} name={name}>
+                  <Bar key={reactKey} dataKey={key} fill={color} barSize={getBarSize(i)} radius={[3,3,0,0]} name={name} isAnimationActive={false}>
                     {showDataPoints && <LabelList dataKey={key} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
                   </Bar>
                 );
               }
               if (m.comboType === 'area') {
-                return <Area key={key} type="monotone" dataKey={key} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} dot={showDataPoints ? {r:4, fill:color, strokeWidth:0} : false} activeDot={{r:5}} name={name}/>;
+                return <Area key={reactKey} type="monotone" dataKey={key} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={getStrokeSize(i)} dot={showDataPoints ? {r:4, fill:color, strokeWidth:0} : false} activeDot={{r:5}} name={name} isAnimationActive={false}/>;
               }
-              return <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2} dot={showDataPoints ? {r:4, fill:color, strokeWidth:0} : false} activeDot={{r:5}} name={name}/>;
+              return <Line key={reactKey} type="monotone" dataKey={key} stroke={color} strokeWidth={getStrokeSize(i)} dot={showDataPoints ? {r:4, fill:color, strokeWidth:0} : false} activeDot={{r:5}} name={name} isAnimationActive={false}/>;
             })}
           </ComposedChart>
         </ResponsiveContainer>
@@ -6384,6 +6427,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               tableColumns,
               subtitle,
               seriesColors,
+              seriesSizes,
               yAxisFormat,
               legendPos,
               showDataPoints,
@@ -6549,7 +6593,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       ? Y_AGG_OPTIONS.filter(o => !o.requiresNum)
                       : Y_AGG_OPTIONS;
                     return (
-                      <div key={idx} style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'8px 10px',marginBottom:6}}>
+                      <div key={m.mid || idx} style={{background:'var(--input-bg)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',padding:'8px 10px',marginBottom:6}}>
                         <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
                           <span style={{fontSize:'12px',fontWeight:600,color:'var(--text-primary)',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.field}</span>
                           {chartType === 'combo' && (
@@ -6693,7 +6737,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       style={{borderLeft:`3px solid ${inS?'#16a34a':activeTarget==='y'?'#16a34a55':'transparent'}`,transition:'border-color 0.15s'}}
                       onClick={() => {
                         if (inS) { setYMetrics([]); return; }
-                        if (activeTarget==='y' && yMetrics.length===0) setYMetrics([{field:'Row Count',agg:'count',comboType:'bar'}]);
+                        if (activeTarget==='y' && yMetrics.length===0) setYMetrics([{mid:newMid(),field:'Row Count',agg:'count',comboType:'bar'}]);
                       }}>
                       <span style={{fontSize:'12px',fontStyle:'italic',color:'var(--text-secondary)'}}>Row Count</span>
                       <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
@@ -6714,9 +6758,9 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                         if (inX) { setXAxis(''); return; }
                         if (inS) { setYMetrics([]); return; }
                         if (activeTarget==='x') { setXAxis(c.name); setActiveTarget('y'); }
-                        else if (activeTarget==='y' && yMetrics.length===0) { setYMetrics([{field:c.name,agg:'count',comboType:'bar'}]); }
+                        else if (activeTarget==='y' && yMetrics.length===0) { setYMetrics([{mid:newMid(),field:c.name,agg:'count',comboType:'bar'}]); }
                         else if (!xAxis) { setXAxis(c.name); setActiveTarget('y'); }
-                        else if (yMetrics.length===0) { setYMetrics([{field:c.name,agg:'count',comboType:'bar'}]); }
+                        else if (yMetrics.length===0) { setYMetrics([{mid:newMid(),field:c.name,agg:'count',comboType:'bar'}]); }
                       }}>
                       <span style={{fontSize:'12.5px'}}>{c.name}</span>
                       <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
@@ -6759,7 +6803,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                   return (
                     <div className={`field-item${sel?' selected':''}`}
                       style={{borderLeft:`3px solid ${sel?'var(--accent)':'var(--accent)55'}`,transition:'border-color 0.15s'}}
-                      onClick={() => { if (sel) setYMetrics([]); else setYMetrics([{field:'Row Count',agg:'count',comboType:'bar'}]); }}>
+                      onClick={() => { if (sel) setYMetrics([]); else setYMetrics([{mid:newMid(),field:'Row Count',agg:'count',comboType:'bar'}]); }}>
                       <span style={{fontSize:'12px',fontStyle:'italic',color:'var(--text-secondary)'}}>Row Count</span>
                       <span className="field-type num">num</span>
                     </div>
@@ -6770,7 +6814,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                   return (
                     <div key={c.name} className={`field-item${sel?' selected':''}`}
                       style={{borderLeft:`3px solid ${sel?'var(--accent)':'var(--accent)55'}`,transition:'border-color 0.15s'}}
-                      onClick={() => { if (sel) setYMetrics([]); else setYMetrics([{field:c.name,agg:'sum',comboType:'bar'}]); }}>
+                      onClick={() => { if (sel) setYMetrics([]); else setYMetrics([{mid:newMid(),field:c.name,agg:'sum',comboType:'bar'}]); }}>
                       <span style={{fontSize:'12.5px'}}>{c.name}</span>
                       <span className={`field-type ${c.type}`}>{c.type}</span>
                     </div>
@@ -6868,6 +6912,22 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                 : f.type === 'group' ? {...f, conditions: f.conditions.map(c => c.id===id ? {...c,...patch} : c)} : f
               )
             );
+
+            // ── Scoped junction logic ────────────────────────────────────────
+            // The and/or connector is shared across a scope. Top-level filters
+            // and groups all share ONE connector; each group has its own.
+            // Changing the connector anywhere in a scope updates the whole scope.
+            const setTopLevelJunction = (j) => setFilters(prev =>
+              prev.map((f, i) => i === 0 ? f : {...f, junction: j})
+            );
+            const setGroupJunction = (groupId, j) => setFilters(prev =>
+              prev.map(g => g.id === groupId && g.type === 'group'
+                ? {...g, conditions: g.conditions.map((c, i) => i === 0 ? c : {...c, junction: j})}
+                : g
+              )
+            );
+            // The effective connector for the top-level scope (from 2nd item, default 'and')
+            const topLevelJunction = (filters.find((_, i) => i === 1)?.junction) || 'and';
             const removeFilter = (id) => setFilters(prev =>
               prev.filter(f => f.id !== id).map(f =>
                 f.type === 'group' ? {...f, conditions: f.conditions.filter(c => c.id !== id)} : f
@@ -6876,19 +6936,21 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
             const removeGroup = (id) => setFilters(prev => prev.filter(f => f.id !== id));
             const addConditionToGroup = (groupId) => {
               const colDef = allCols[0];
-              setFilters(prev => prev.map(f =>
-                f.id === groupId
-                  ? {...f, conditions:[...f.conditions, {id:Date.now()+Math.random(), col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:'and'}]}
-                  : f
-              ));
+              setFilters(prev => prev.map(f => {
+                if (f.id !== groupId) return f;
+                // New condition inherits the group's established connector
+                const grpJunction = (f.conditions[1]?.junction) || f.conditions[0]?.junction || 'and';
+                return {...f, conditions:[...f.conditions, {id:Date.now()+Math.random(), col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:grpJunction}]};
+              }));
             };
             const makeFilter = (col) => {
               const colDef = allCols.find(c => c.name === col) || allCols[0];
-              return {id:Date.now()+Math.random(), type:'filter', col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:'and'};
+              // New top-level filter inherits the established top-level connector
+              return {id:Date.now()+Math.random(), type:'filter', col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:topLevelJunction};
             };
             const makeGroup = () => ({
               id:Date.now()+Math.random(), type:'group',
-              junction:'and',
+              junction:topLevelJunction,
               conditions:[],
             });
 
@@ -6930,14 +6992,27 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
             };
 
             // Decide drop position based on Y coordinate within target row.
-            const calcDropPosition = (e) => {
+            // Uses a dead-zone in the middle so the indicator doesn't flicker
+            // back and forth when the pointer hovers near the row's center.
+            const calcDropPosition = (e, currentPos) => {
               const rect = e.currentTarget.getBoundingClientRect();
-              return (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+              const ratio = (e.clientY - rect.top) / rect.height;
+              // Hysteresis: once 'before', stay 'before' until clearly past 60%;
+              // once 'after', stay 'after' until clearly above 40%.
+              if (currentPos === 'before' && ratio < 0.6) return 'before';
+              if (currentPos === 'after'  && ratio > 0.4) return 'after';
+              return ratio < 0.5 ? 'before' : 'after';
             };
+
+            // Clear all drag state — call on drop or drag end.
+            const endFilterDrag = () => { setFilterDragId(null); setFilterDropTarget(null); };
 
             // Render a single filter row inline (NOT as a React component to avoid remount issues)
             // `parentGroupId` = id of the parent group if this row is inside one, else null
-            const renderFilterRow = (f, isFirst, onJunctionChange, onRemove, parentGroupId = null) => {
+            // `scopeIndex`    = position of this row within its scope (0 = first row).
+            //                   Index 1 shows an editable and/or selector; index 2+
+            //                   show the same connector as read-only text (locked).
+            const renderFilterRow = (f, isFirst, onJunctionChange, onRemove, parentGroupId = null, scopeIndex = 0, scopeJunction = 'and') => {
               const ops = OPS[f.colType] || OPS.str;
               const noVal = NO_VALUE_OPS.includes(f.op);
               const isDraggingThis = filterDragId === f.id;
@@ -6949,45 +7024,55 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                     if (filterDragId && filterDragId !== f.id) {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = 'move';
-                      const pos = calcDropPosition(e);
+                      const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+                      const pos = calcDropPosition(e, prevPos);
                       if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
                         setFilterDropTarget({ id: f.id, position: pos });
                       }
                     }
                   }}
-                  onDragLeave={() => {
-                    if (filterDropTarget?.id === f.id) setFilterDropTarget(null);
-                  }}
                   onDrop={e => {
                     e.preventDefault();
-                    if (!filterDragId || filterDragId === f.id) return;
-                    const pos = calcDropPosition(e);
+                    if (!filterDragId || filterDragId === f.id) { endFilterDrag(); return; }
+                    const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+                    const pos = calcDropPosition(e, prevPos);
                     if (parentGroupId) {
                       reorderConditionInGroup(parentGroupId, filterDragId, f.id, pos);
                     } else {
                       reorderTopLevelFilter(filterDragId, f.id, pos);
                     }
-                    setFilterDragId(null);
-                    setFilterDropTarget(null);
+                    endFilterDrag();
                   }}
                   style={{
-                    display:'flex',alignItems:'center',gap:5,marginBottom:5,flexWrap:'nowrap',
-                    opacity: isDraggingThis ? 0.35 : 1,
-                    borderTop:    isDropTarget && dropPos === 'before' ? '2px solid var(--accent)' : '2px solid transparent',
-                    borderBottom: isDropTarget && dropPos === 'after'  ? '2px solid var(--accent)' : '2px solid transparent',
-                    transition: 'opacity 0.12s, border-color 0.12s',
+                    display:'flex',alignItems:'center',gap:5,flexWrap:'nowrap',
+                    position:'relative',
+                    opacity: isDraggingThis ? 0.4 : 1,
+                    margin:'2px 0',
+                    padding:'2px 0',
+                    borderRadius:4,
+                    background: isDropTarget ? 'var(--accent-light)' : 'transparent',
+                    boxShadow: isDropTarget && dropPos === 'before' ? 'inset 0 2px 0 0 var(--accent)'
+                             : isDropTarget && dropPos === 'after'  ? 'inset 0 -2px 0 0 var(--accent)'
+                             : 'none',
+                    transition: 'opacity 0.12s, background 0.1s',
                   }}>
-                  {/* Left label */}
+                  {/* Left label / connector */}
                   {isFirst
                     ? <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,width:42,flexShrink:0}}>Where</span>
-                    : <div style={{position:'relative',flexShrink:0}}>
-                        <select value={f.junction} onChange={e=>onJunctionChange(e.target.value)}
-                          style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
-                          <option value="and">and</option>
-                          <option value="or">or</option>
-                        </select>
-                        <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
-                      </div>
+                    : scopeIndex === 1
+                      ? <div style={{position:'relative',flexShrink:0}}>
+                          <select value={scopeJunction} onChange={e=>onJunctionChange(e.target.value)}
+                            title="Connector applies to all conditions in this group"
+                            style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
+                            <option value="and">and</option>
+                            <option value="or">or</option>
+                          </select>
+                          <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
+                        </div>
+                      : <span title="Connector is shared — change it on the first connector above"
+                          style={{fontSize:'11px',fontWeight:600,color:'var(--text-tertiary)',width:52,flexShrink:0,textAlign:'center',padding:'3px 0',border:'1px solid transparent'}}>
+                          {scopeJunction}
+                        </span>
                   }
                   {/* Column */}
                   <div style={{position:'relative',flexShrink:0,minWidth:80,flex:'0 0 25%'}}>
@@ -7031,9 +7116,20 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       e.dataTransfer.setData('text/plain', String(f.id));
                       setFilterDragId(f.id);
                     }}
-                    onDragEnd={() => { setFilterDragId(null); setFilterDropTarget(null); }}
+                    onDragEnd={endFilterDrag}
                     title="Drag to reorder"
-                    style={{color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',fontSize:'14px',cursor: filterDragId ? 'grabbing' : 'grab',flexShrink:0,lineHeight:1,userSelect:'none',padding:'2px 4px'}}>⠿</span>
+                    style={{
+                      color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',
+                      fontSize:'15px',
+                      cursor: filterDragId ? 'grabbing' : 'grab',
+                      flexShrink:0,lineHeight:1,userSelect:'none',
+                      padding:'4px 6px',
+                      borderRadius:4,
+                      transition:'color 0.12s, background 0.12s',
+                    }}
+                    onMouseEnter={e => { if (!filterDragId) e.currentTarget.style.background = 'var(--accent-light)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                  >⠿</span>
                 </div>
               );
             };
@@ -7053,7 +7149,14 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                     const isFirst = idx === 0;
 
                     if (f.type === 'filter') {
-                      return renderFilterRow(f, isFirst, j=>updateFilter(f.id,{junction:j}), removeFilter);
+                      return renderFilterRow(
+                        f, isFirst,
+                        j => setTopLevelJunction(j),
+                        removeFilter,
+                        null,
+                        idx,
+                        topLevelJunction
+                      );
                     }
 
                     if (f.type === 'group') {
@@ -7066,42 +7169,50 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                             if (filterDragId && filterDragId !== f.id) {
                               e.preventDefault();
                               e.dataTransfer.dropEffect = 'move';
-                              const pos = calcDropPosition(e);
+                              const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+                              const pos = calcDropPosition(e, prevPos);
                               if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
                                 setFilterDropTarget({ id: f.id, position: pos });
                               }
                             }
                           }}
-                          onDragLeave={() => {
-                            if (filterDropTarget?.id === f.id) setFilterDropTarget(null);
-                          }}
                           onDrop={e => {
                             e.preventDefault();
-                            if (!filterDragId || filterDragId === f.id) return;
-                            const pos = calcDropPosition(e);
+                            if (!filterDragId || filterDragId === f.id) { endFilterDrag(); return; }
+                            const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+                            const pos = calcDropPosition(e, prevPos);
                             reorderTopLevelFilter(filterDragId, f.id, pos);
-                            setFilterDragId(null);
-                            setFilterDropTarget(null);
+                            endFilterDrag();
                           }}
                           style={{
-                            marginBottom:6,
-                            opacity: isDraggingThis ? 0.35 : 1,
-                            borderTop:    isDropTarget && dropPos === 'before' ? '2px solid var(--accent)' : '2px solid transparent',
-                            borderBottom: isDropTarget && dropPos === 'after'  ? '2px solid var(--accent)' : '2px solid transparent',
-                            transition: 'opacity 0.12s, border-color 0.12s',
+                            margin:'2px 0',
+                            padding:'2px',
+                            borderRadius:6,
+                            opacity: isDraggingThis ? 0.4 : 1,
+                            background: isDropTarget ? 'var(--accent-light)' : 'transparent',
+                            boxShadow: isDropTarget && dropPos === 'before' ? 'inset 0 2px 0 0 var(--accent)'
+                                     : isDropTarget && dropPos === 'after'  ? 'inset 0 -2px 0 0 var(--accent)'
+                                     : 'none',
+                            transition: 'opacity 0.12s, background 0.1s',
                           }}>
-                          {/* Group's junction label on the left */}
+                          {/* Group's connector on the left (top-level scope) */}
                           <div style={{display:'flex',alignItems:'flex-start',gap:5,marginBottom:4}}>
                             {isFirst
                               ? <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,width:42,flexShrink:0,paddingTop:6}}>Where</span>
-                              : <div style={{position:'relative',flexShrink:0,paddingTop:3}}>
-                                  <select value={f.junction} onChange={e=>setFilters(prev=>prev.map(x=>x.id===f.id?{...x,junction:e.target.value}:x))}
-                                    style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
-                                    <option value="and">and</option>
-                                    <option value="or">or</option>
-                                  </select>
-                                  <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
-                                </div>
+                              : idx === 1
+                                ? <div style={{position:'relative',flexShrink:0,paddingTop:3}}>
+                                    <select value={topLevelJunction} onChange={e=>setTopLevelJunction(e.target.value)}
+                                      title="Connector applies to all top-level conditions"
+                                      style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
+                                      <option value="and">and</option>
+                                      <option value="or">or</option>
+                                    </select>
+                                    <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
+                                  </div>
+                                : <span title="Connector is shared — change it on the first connector above"
+                                    style={{fontSize:'11px',fontWeight:600,color:'var(--text-tertiary)',width:52,flexShrink:0,textAlign:'center',paddingTop:6}}>
+                                    {topLevelJunction}
+                                  </span>
                             }
                             {/* Group block */}
                             <div style={{flex:1,border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',background:'var(--input-bg)',overflow:'hidden'}}>
@@ -7121,9 +7232,20 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                     e.dataTransfer.setData('text/plain', String(f.id));
                                     setFilterDragId(f.id);
                                   }}
-                                  onDragEnd={() => { setFilterDragId(null); setFilterDropTarget(null); }}
+                                  onDragEnd={endFilterDrag}
                                   title="Drag to reorder group"
-                                  style={{color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',fontSize:'14px',cursor: filterDragId ? 'grabbing' : 'grab',lineHeight:1,userSelect:'none',padding:'2px 4px'}}>⠿</span>
+                                  style={{
+                                    color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',
+                                    fontSize:'15px',
+                                    cursor: filterDragId ? 'grabbing' : 'grab',
+                                    lineHeight:1,userSelect:'none',
+                                    padding:'4px 6px',
+                                    borderRadius:4,
+                                    transition:'color 0.12s, background 0.12s',
+                                  }}
+                                  onMouseEnter={e => { if (!filterDragId) e.currentTarget.style.background = 'var(--accent-light)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                                >⠿</span>
                               </div>
                               {/* Conditions inside group */}
                               {f.conditions.length === 0 && (
@@ -7133,9 +7255,19 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                               )}
                               {f.conditions.length > 0 && (
                                 <div style={{padding:'8px 10px'}}>
-                                  {f.conditions.map((c,ci) =>
-                                    renderFilterRow(c, ci===0, j=>updateFilter(c.id,{junction:j}), removeFilter, f.id)
-                                  )}
+                                  {(() => {
+                                    const grpJunction = (f.conditions[1]?.junction) || f.conditions[0]?.junction || 'and';
+                                    return f.conditions.map((c,ci) =>
+                                      renderFilterRow(
+                                        c, ci===0,
+                                        j => setGroupJunction(f.id, j),
+                                        removeFilter,
+                                        f.id,
+                                        ci,
+                                        grpJunction
+                                      )
+                                    );
+                                  })()}
                                 </div>
                               )}
                             </div>
@@ -7283,6 +7415,59 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                             }}/>
                         ))}
                       </div>
+
+                      {/* ── Per-series size: bar width / line thickness ── */}
+                      {(() => {
+                        // Determine whether the selected series is a bar or a line/area,
+                        // and what label to show.
+                        let sizeKind = null; // 'bar' | 'line' | null
+                        if (chartType === 'bar' || chartType === 'row') sizeKind = 'bar';
+                        else if (chartType === 'line' || chartType === 'area') sizeKind = 'line';
+                        else if (chartType === 'combo') {
+                          const ct = yMetrics[selectedSeriesIdx]?.comboType;
+                          if (ct === 'bar') sizeKind = 'bar';
+                          else if (ct === 'line' || ct === 'area') sizeKind = 'line';
+                        }
+                        if (!sizeKind) return null;
+                        const sizeLabel = sizeKind === 'bar' ? 'Bar Width' : 'Line Thickness';
+                        const curSize = getSeriesSize(selectedSeriesIdx);
+                        return (
+                          <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid var(--border)'}}>
+                            <div style={{fontSize:'11px',color:'var(--text-tertiary)',fontWeight:600,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                              {sizeLabel}
+                            </div>
+                            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                              {[
+                                {id:'sm',label:'Small'},
+                                {id:'md',label:'Medium'},
+                                {id:'lg',label:'Large'},
+                              ].map(opt => {
+                                const isActive = curSize === opt.id;
+                                // visual preview bar/line for the option
+                                const previewThickness = sizeKind === 'bar'
+                                  ? {sm:6, md:11, lg:18}[opt.id]
+                                  : {sm:2, md:3, lg:5}[opt.id];
+                                return (
+                                  <button key={opt.id} onClick={()=>setSeriesSize(selectedSeriesIdx, opt.id)}
+                                    style={{
+                                      display:'flex',flexDirection:'column',alignItems:'center',gap:6,
+                                      padding:'8px 4px',borderRadius:'var(--radius-sm)',cursor:'pointer',
+                                      border:`1.5px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                                      background: isActive ? 'var(--accent-light)' : 'var(--card-bg)',
+                                      transition:'all 0.12s',
+                                    }}>
+                                    {sizeKind === 'bar'
+                                      ? <div style={{width:previewThickness,height:18,borderRadius:2,background:isActive?'var(--accent)':'var(--text-tertiary)'}}/>
+                                      : <div style={{width:24,height:previewThickness,borderRadius:4,background:isActive?'var(--accent)':'var(--text-tertiary)'}}/>
+                                    }
+                                    <span style={{fontSize:'11px',fontWeight:isActive?600:500,color:isActive?'var(--accent)':'var(--text-secondary)'}}>{opt.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
