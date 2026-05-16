@@ -1649,8 +1649,36 @@
     font-size: 16px;
     font-weight: 600;
     color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
   .section-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    padding: 1px 7px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--badge-bg);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+  .count-badge.accent {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0 0 var(--space-lg) 0;
+    opacity: 0.7;
+  }
 
   /* Notification dot */
   .dot-indicator {
@@ -3358,15 +3386,43 @@ const LibraryScreen = ({ navigate, tweaks, savedReports = [], onCreateDashboard,
   const [search, setSearch] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [staticDashboards, setStaticDashboards] = useState(DASHBOARDS);
-  const filtered = staticDashboards.filter(d =>
-    d.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const filteredReports = savedReports.filter(r =>
-    r.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter tab: 'all' | 'mine' | 'reports'
+  const [activeTab, setActiveTab] = useState('all');
+
+  const matchesSearch = (name) => name.toLowerCase().includes(search.toLowerCase());
+  const filteredStatic = staticDashboards.filter(d => matchesSearch(d.name));
+  const filteredUser   = userDashboards.filter(d => matchesSearch(d.name));
+  const filteredReports = savedReports.filter(r => matchesSearch(r.name));
   const miniTypes = ['area','bar','line','pie','area','bar'];
 
+  const totalAll = filteredStatic.length + filteredUser.length;
+  const showMy      = activeTab === 'all' || activeTab === 'mine';
+  const showStatic  = activeTab === 'all';
+  const showReports = activeTab === 'all' || activeTab === 'reports';
+
   const deleteStaticDashboard = (id) => setStaticDashboards(prev => prev.filter(d => d.id !== id));
+
+  // Reusable card renderer
+  const renderDashCard = ({ id, name, desc, color, tags = [], updated, miniType, onClick, onDelete }) => (
+    <div key={id} className="card dash-card" style={{position:'relative'}} onClick={onClick}>
+      <div className="dash-preview" style={{background:`linear-gradient(135deg, ${color}18 0%, ${color}08 100%)`,border:`1px solid ${color}25`}}>
+        <MiniChart color={color} type={miniType} />
+      </div>
+      <div className="dash-card-meta">
+        <div className="dash-card-title">{name}</div>
+        <div className="dash-card-subtitle">{desc}</div>
+        <div className="dash-card-footer">
+          {tags.map(t => <span key={t} className="tag">{t}</span>)}
+          <span style={{marginLeft:'auto',fontSize:'11px',color:'var(--text-tertiary)',display:'flex',alignItems:'center',gap:4}}>
+            <Icon name="clock" size={11}/>{updated}
+          </span>
+          <button className="card-delete-btn" title="Delete" onClick={e => { e.stopPropagation(); onDelete && onDelete(); }}>
+            <Icon name="trash" size={13}/>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="screen" style={{display:'flex',flexDirection:'column',height:'100%'}}>
@@ -3375,8 +3431,11 @@ const LibraryScreen = ({ navigate, tweaks, savedReports = [], onCreateDashboard,
         <div className="topbar-actions">
           <div className="search-box">
             <Icon name="search" size={13} />
-            <input placeholder="Search dashboards…" value={search} onChange={e => setSearch(e.target.value)} />
+            <input placeholder="Search dashboards & reports…" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          <button className="btn btn-ghost" onClick={() => navigate('questions')}>
+            <Icon name="plus" size={13}/>New Report
+          </button>
           <button className="btn btn-primary" onClick={() => setShowNew(true)}>
             <Icon name="plus" size={14} />
             New Dashboard
@@ -3384,110 +3443,148 @@ const LibraryScreen = ({ navigate, tweaks, savedReports = [], onCreateDashboard,
         </div>
       </div>
 
-
+      {/* Tab strip */}
+      <div style={{
+        display:'flex',
+        padding:'0 var(--space-lg)',
+        background:'var(--card-bg)',
+        borderBottom:'1px solid var(--border)',
+        gap: 4,
+        flexShrink:0,
+      }}>
+        {[
+          {id:'all',     label:'All',          count: totalAll + filteredReports.length},
+          {id:'mine',    label:'My Dashboards',count: filteredUser.length},
+          {id:'reports', label:'Reports',      count: filteredReports.length},
+        ].map(tab => (
+          <button key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="btn"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeTab===tab.id ? '2px solid var(--accent)' : '2px solid transparent',
+              borderRadius: 0,
+              padding: '12px 14px',
+              color: activeTab===tab.id ? 'var(--accent)' : 'var(--text-secondary)',
+              fontWeight: activeTab===tab.id ? 600 : 500,
+              fontSize: '13px',
+              gap: 6,
+            }}>
+            {tab.label}
+            <span className={`count-badge${activeTab===tab.id?' accent':''}`}>{tab.count}</span>
+          </button>
+        ))}
+      </div>
 
       <div className="page-body">
-        {/* My Dashboards — user-created */}
-        {userDashboards.filter(d => d.name.toLowerCase().includes(search.toLowerCase())).length > 0 && (
+        {/* My Dashboards */}
+        {showMy && filteredUser.length > 0 && (
           <>
             <div className="section-header">
-              <div>
-                <div className="section-title">My Dashboards</div>
-                <div className="section-subtitle">{userDashboards.filter(d => d.name.toLowerCase().includes(search.toLowerCase())).length} dashboard{userDashboards.filter(d => d.name.toLowerCase().includes(search.toLowerCase())).length !== 1 ? 's' : ''}</div>
+              <div className="section-title">
+                My Dashboards <span className="count-badge">{filteredUser.length}</span>
               </div>
             </div>
             <div className="library-grid" style={{marginBottom:'var(--space-xl)'}}>
-              {userDashboards.filter(d => d.name.toLowerCase().includes(search.toLowerCase())).map((d) => (
-                <div key={d.id} className="card dash-card" style={{position:'relative'}} onClick={() => navigate('dashboard', d)}>
-                  <div className="dash-preview" style={{background:`linear-gradient(135deg, ${d.color}18 0%, ${d.color}08 100%)`,border:`1px solid ${d.color}25`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <MiniChart color={d.color} type="area" />
-                  </div>
-                  <div className="dash-card-meta">
-                    <div className="dash-card-title">{d.name}</div>
-                    <div className="dash-card-subtitle">{d.desc || 'Custom dashboard'}</div>
-                    <div className="dash-card-footer">
-                      {(d.tags || []).map(t => <span key={t} className="tag">{t}</span>)}
-                      <span style={{marginLeft:'auto',fontSize:'11px',color:'var(--text-tertiary)',display:'flex',alignItems:'center',gap:4}}><Icon name="clock" size={11}/>just now</span>
-                      <button className="card-delete-btn" title="Delete dashboard" onClick={e => { e.stopPropagation(); onDeleteDashboard && onDeleteDashboard(d.id); }}>
-                        <Icon name="trash" size={13}/>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {filteredUser.map((d) => renderDashCard({
+                id: d.id, name: d.name, desc: d.desc || 'Custom dashboard',
+                color: d.color, tags: d.tags || [], updated: 'just now', miniType: 'area',
+                onClick: () => navigate('dashboard', d),
+                onDelete: () => onDeleteDashboard && onDeleteDashboard(d.id),
+              }))}
             </div>
           </>
         )}
+        {activeTab === 'mine' && filteredUser.length === 0 && (
+          <div className="empty-state" style={{paddingTop:64,paddingBottom:64}}>
+            <div className="empty-icon"><Icon name="chart" size={22}/></div>
+            <div className="empty-title">{search ? 'No matches' : 'No dashboards yet'}</div>
+            <div className="empty-desc">{search ? 'Try a different search.' : 'Create your first dashboard to start tracking the metrics that matter.'}</div>
+            {!search && (
+              <button className="btn btn-primary" onClick={() => setShowNew(true)}>
+                <Icon name="plus" size={13}/>New Dashboard
+              </button>
+            )}
+          </div>
+        )}
 
         {/* All Dashboards */}
-        <div className="section-header">
-          <div>
-            <div className="section-title">All Dashboards</div>
-            <div className="section-subtitle">{filtered.length} dashboards</div>
-          </div>
-        </div>
-        <div className="library-grid" style={{marginBottom:'var(--space-xl)'}}>
-          {filtered.map((d, i) => (
-            <div key={d.id} className="card dash-card" style={{position:'relative'}} onClick={() => navigate('dashboard', d)}>
-              <div className="dash-preview" style={{background: `linear-gradient(135deg, ${d.color}18 0%, ${d.color}08 100%)`, border:`1px solid ${d.color}25`}}>
-                <MiniChart color={d.color} type={miniTypes[i % miniTypes.length]} />
-              </div>
-              <div className="dash-card-meta">
-                <div className="dash-card-title">{d.name}</div>
-                <div className="dash-card-subtitle">{d.desc}</div>
-                <div className="dash-card-footer">
-                  {d.tags.map(t => <span key={t} className="tag">{t}</span>)}
-                  <span style={{marginLeft:'auto',fontSize:'11px',color:'var(--text-tertiary)',display:'flex',alignItems:'center',gap:4}}><Icon name="clock" size={11}/>{d.updated}</span>
-                  <button className="card-delete-btn" title="Delete dashboard" onClick={e => { e.stopPropagation(); deleteStaticDashboard(d.id); }}>
-                    <Icon name="trash" size={13}/>
-                  </button>
-                </div>
+        {showStatic && (
+          <>
+            <div className="section-header">
+              <div className="section-title">
+                All Dashboards <span className="count-badge">{filteredStatic.length}</span>
               </div>
             </div>
-          ))}
-        </div>
+            {filteredStatic.length === 0 ? (
+              <div className="empty-state" style={{paddingTop:32,paddingBottom:32}}>
+                <div className="empty-icon"><Icon name="chart" size={22}/></div>
+                <div className="empty-title">No dashboards found</div>
+                <div className="empty-desc">Try a different search, or create a new one.</div>
+              </div>
+            ) : (
+              <div className="library-grid" style={{marginBottom:'var(--space-xl)'}}>
+                {filteredStatic.map((d, i) => renderDashCard({
+                  id: d.id, name: d.name, desc: d.desc,
+                  color: d.color, tags: d.tags, updated: d.updated, miniType: miniTypes[i % miniTypes.length],
+                  onClick: () => navigate('dashboard', d),
+                  onDelete: () => deleteStaticDashboard(d.id),
+                }))}
+              </div>
+            )}
+          </>
+        )}
 
         {/* Reports */}
-        <div className="section-header">
-          <div>
-            <div className="section-title">Reports</div>
-            <div className="section-subtitle">{filteredReports.length} saved from Report Builder</div>
-          </div>
-          <button className="btn btn-ghost" style={{fontSize:'12px'}} onClick={() => navigate('questions')}>
-            <Icon name="plus" size={13}/>New Report
-          </button>
-        </div>
-        {filteredReports.length === 0 ? (
-          <div className="empty-state" style={{paddingTop:32,paddingBottom:32}}>
-            <div className="empty-icon"><Icon name="chart" size={22}/></div>
-            <div className="empty-title">No reports yet</div>
-            <div className="empty-desc">Build a report in the Report Builder and save it to see it here.</div>
-            <button className="btn btn-primary" onClick={() => navigate('questions')}><Icon name="plus" size={13}/>Create Report</button>
-          </div>
-        ) : (
-          <div className="library-grid">
-            {filteredReports.map((r, i) => (
-              <div key={r.id} className="card dash-card" style={{position:'relative', cursor:'pointer'}} onClick={() => onEditReport && onEditReport(r)}>
-                <div className="dash-preview" style={{background:`linear-gradient(135deg, ${r.color}18 0%, ${r.color}08 100%)`,border:`1px solid ${r.color}25`}}>
-                  <MiniChart color={r.color} type={miniTypes[i % miniTypes.length]} />
-                </div>
-                <div className="dash-card-meta">
-                  <div className="dash-card-title">{r.name}</div>
-                  <div className="dash-card-subtitle">{r.desc}</div>
-                  <div className="dash-card-footer">
-                    {r.tags.map(t => <span key={t} className="tag">{t}</span>)}
-                    <span style={{marginLeft:'auto',fontSize:'11px',color:'var(--text-tertiary)',display:'flex',alignItems:'center',gap:4}}><Icon name="clock" size={11}/>{r.savedAt}</span>
-                    <button className="card-delete-btn" title="Delete report" onClick={e => { e.stopPropagation(); onDeleteReport && onDeleteReport(r.id); }}>
-                      <Icon name="trash" size={13}/>
-                    </button>
-                  </div>
-                </div>
-                <div style={{padding:'6px 12px 10px',borderTop:'1px solid var(--border)',display:'flex',alignItems:'center',gap:6,fontSize:'11px',color:'var(--accent)'}}>
-                  <Icon name="edit" size={11}/>Edit in Report Builder
-                </div>
+        {showReports && (
+          <>
+            <div className="section-header">
+              <div className="section-title">
+                Reports <span className="count-badge">{filteredReports.length}</span>
+                <span style={{fontSize:'12px',fontWeight:400,color:'var(--text-tertiary)',marginLeft:4}}>from Report Builder</span>
               </div>
-            ))}
-          </div>
+              {filteredReports.length > 0 && (
+                <button className="btn btn-ghost" style={{fontSize:'12px'}} onClick={() => navigate('questions')}>
+                  <Icon name="plus" size={13}/>New Report
+                </button>
+              )}
+            </div>
+            {filteredReports.length === 0 ? (
+              <div className="empty-state" style={{paddingTop:32,paddingBottom:32}}>
+                <div className="empty-icon"><Icon name="chart" size={22}/></div>
+                <div className="empty-title">No reports yet</div>
+                <div className="empty-desc">Build a report in the Report Builder and save it to see it here.</div>
+                <button className="btn btn-primary" onClick={() => navigate('questions')}><Icon name="plus" size={13}/>Create Report</button>
+              </div>
+            ) : (
+              <div className="library-grid">
+                {filteredReports.map((r, i) => (
+                  <div key={r.id} className="card dash-card" style={{position:'relative', cursor:'pointer'}} onClick={() => onEditReport && onEditReport(r)}>
+                    <div className="dash-preview" style={{background:`linear-gradient(135deg, ${r.color}18 0%, ${r.color}08 100%)`,border:`1px solid ${r.color}25`}}>
+                      <MiniChart color={r.color} type={miniTypes[i % miniTypes.length]} />
+                    </div>
+                    <div className="dash-card-meta">
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{fontSize:'10px',fontWeight:600,padding:'2px 7px',borderRadius:10,background:'var(--accent-light)',color:'var(--accent)',letterSpacing:'0.04em',textTransform:'uppercase'}}>Report</span>
+                        <div className="dash-card-title" style={{marginLeft:0}}>{r.name}</div>
+                      </div>
+                      <div className="dash-card-subtitle">{r.desc}</div>
+                      <div className="dash-card-footer">
+                        {r.tags.map(t => <span key={t} className="tag">{t}</span>)}
+                        <span style={{marginLeft:'auto',fontSize:'11px',color:'var(--text-tertiary)',display:'flex',alignItems:'center',gap:4}}>
+                          <Icon name="clock" size={11}/>{r.savedAt}
+                        </span>
+                        <button className="card-delete-btn" title="Delete report" onClick={e => { e.stopPropagation(); onDeleteReport && onDeleteReport(r.id); }}>
+                          <Icon name="trash" size={13}/>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -3542,7 +3639,10 @@ const NewDashboardModal = ({ onClose, onCreate, savedReports = [] }) => {
         </div>
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => canCreate && onCreate(name.trim(), desc.trim(), selectedReport)} style={{opacity: canCreate ? 1 : 0.5}}>
+          <button className="btn btn-primary"
+            disabled={!canCreate}
+            onClick={() => canCreate && onCreate(name.trim(), desc.trim(), selectedReport)}
+            style={{opacity: canCreate ? 1 : 0.5, cursor: canCreate ? 'pointer' : 'not-allowed'}}>
             Create Dashboard
           </button>
         </div>
@@ -3554,8 +3654,9 @@ const NewDashboardModal = ({ onClose, onCreate, savedReports = [] }) => {
 // ─── MINI REPORT CHART (renders a saved report's chart type) ─────────────────
 // MiniReportChart — faithfully re-renders a saved report using its full saved
 // configuration (chartType, yMetrics, seriesColors, xDateGroup, yAxisFormat,
-// showDataPoints, subtitle). Mirrors the Report Builder's renderPreview logic
-// so the dashboard card matches exactly what was built in the builder.
+// showDataPoints, subtitle, tableColumns). Mirrors the Report Builder's
+// renderPreview logic so the dashboard card matches exactly what was built
+// in the builder, including aggregation-aware values for every series.
 const MiniReportChart = ({ report, chartStyle }) => {
   if (!report) return null;
 
@@ -3567,10 +3668,11 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const yAxisFormat   = report.yAxisFormat  || 'number';
   const showDataPoints= report.showDataPoints || false;
   const xAxis         = report.xAxis        || '';
+  const tableColumns  = report.tableColumns || [];
   const db            = DATABASES.find(d => d.id === report.db);
   const currentTable  = db?.tables?.find(t => t.name === report.table) || db?.tables?.[0];
 
-  const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6'];
+  const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
   const getSeriesColor = (i) => seriesColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
 
   const formatYValue = (v) => {
@@ -3578,6 +3680,34 @@ const MiniReportChart = ({ report, chartStyle }) => {
     if (yAxisFormat === 'percent')  return `${v}%`;
     if (yAxisFormat === 'compact')  return v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}K` : `${v}`;
     return `${v}`;
+  };
+
+  // ── Aggregation transformer (matches Report Builder) ───────────────────────
+  const applyAgg = (baseVal, agg) => {
+    switch (agg) {
+      case 'count':    return Math.max(1, Math.round(baseVal / 1000));
+      case 'avg':      return Math.round(baseVal / 42);
+      case 'min':      return Math.round(baseVal * 0.58);
+      case 'max':      return baseVal;
+      case 'distinct': return Math.max(1, Math.round(baseVal / 15000));
+      case 'stddev':   return Math.round(baseVal * 0.18);
+      case 'cumsum':   return Math.round(baseVal * 1.4);
+      case 'cumcount': return Math.max(1, Math.round((baseVal / 1000) * 1.4));
+      case 'sum':
+      default:         return baseVal;
+    }
+  };
+  const SERIES_SCALE = [1.0, 0.72, 0.54, 0.38, 0.85, 0.62, 0.45, 0.30];
+  const getSeriesScale = (i) => SERIES_SCALE[i % SERIES_SCALE.length];
+  const getSeriesValue = (metric, baseVal, seriesIdx) => {
+    const scaled = Math.round(baseVal * getSeriesScale(seriesIdx));
+    return applyAgg(scaled, metric?.agg || 'sum');
+  };
+  const getMetricLabel = (m, idx) => {
+    if (!m) return `Series ${idx + 1}`;
+    const aggLabels = {count:'Count of rows', sum:'Sum of', avg:'Avg of', distinct:'Distinct', min:'Min of', max:'Max of', stddev:'Std dev of', cumsum:'Cumulative sum of', cumcount:'Cumulative count of rows'};
+    if (m.field === 'Row Count' || m.agg === 'count' || m.agg === 'cumcount') return aggLabels[m.agg] || 'Count of rows';
+    return `${aggLabels[m.agg] || 'Sum of'} ${m.field}`;
   };
 
   // ── Reproduce the same data-generation as the Report Builder ───────────────
@@ -3623,56 +3753,69 @@ const MiniReportChart = ({ report, chartStyle }) => {
     return !col || col.type === 'date';
   })();
 
+  // Build the base "per X-tick" rows, then layer one s0..sN-1 key per metric
   const getBarData = () => {
+    let baseRows = [];
     if (xIsDate) {
-      return getTimeSeriesData().map(d => ({
-        xLabel:d.label, value:d.leads,
-        value2:Math.round(d.leads*0.72+15),
-        value3:Math.round(d.leads*0.54+30),
-      }));
-    }
-    const col = currentTable?.cols?.find(c => c.name === xAxis);
-    const colName = xAxis || 'Category';
-    let labels = [];
-    if (col && currentTable) {
-      const colIdx = currentTable.cols.indexOf(col);
-      const seen = new Set();
-      for (const row of (db?.rows || [])) {
-        const v = String(row?.[colIdx] ?? '');
-        if (v && !seen.has(v)) { seen.add(v); labels.push(v); }
-        if (labels.length >= 5) break;
+      baseRows = getTimeSeriesData().map(d => ({ xLabel: d.label, base: d.leads }));
+    } else {
+      const col = currentTable?.cols?.find(c => c.name === xAxis);
+      const colName = xAxis || 'Category';
+      let labels = [];
+      if (col && currentTable) {
+        const colIdx = currentTable.cols.indexOf(col);
+        const seen = new Set();
+        for (const row of (db?.rows || [])) {
+          const v = String(row?.[colIdx] ?? '');
+          if (v && !seen.has(v)) { seen.add(v); labels.push(v); }
+          if (labels.length >= 5) break;
+        }
       }
+      if (labels.length < 3) labels = [`${colName} A`,`${colName} B`,`${colName} C`,`${colName} D`,`${colName} E`];
+      const baseScale = [124,98,87,62,53];
+      baseRows = labels.slice(0,5).map((lbl,i) => ({ xLabel: lbl, base: baseScale[i] * 1000 }));
     }
-    if (labels.length < 3) labels = [`${colName} A`,`${colName} B`,`${colName} C`,`${colName} D`,`${colName} E`];
-    const base = [124,98,87,62,53];
-    return labels.slice(0,5).map((lbl,i) => ({
-      xLabel:lbl,
-      value:base[i]*1000,
-      value2:Math.round(base[i]*0.72)*1000,
-      value3:Math.round(base[i]*0.54)*1000,
-    }));
+    const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
+    return baseRows.map(({xLabel, base}) => {
+      const row = { xLabel };
+      effectiveMetrics.forEach((m, i) => { row[`s${i}`] = getSeriesValue(m, base, i); });
+      return row;
+    });
   };
 
   // ── KPI / Number type ──────────────────────────────────────────────────────
   if (chartType === 'number') {
-    const kpiValue = yAxisFormat === 'currency' ? '$4,347,036'
-      : yAxisFormat === 'percent' ? '68.4%'
-      : yAxisFormat === 'compact' ? '4.3M'
-      : '4,347';
+    const agg = yMetrics[0]?.agg || 'count';
+    const field = yMetrics[0]?.field || 'Row Count';
+    const aggLabel = {count:'Count of rows',sum:'Sum of',avg:'Avg of',distinct:'Distinct values of',min:'Min of',max:'Max of',stddev:'Std dev of',cumsum:'Cumulative sum of',cumcount:'Cumulative count of rows'}[agg] || 'Count of rows';
+    const label = field === 'Row Count' ? 'Total Row Count' : `${aggLabel} ${field}`;
+    const BASE_KPI = {count:15280, sum:4347036, avg:2840, min:158, max:589, distinct:47, stddev:312, cumsum:6083000, cumcount:21392};
+    const rawVal = BASE_KPI[agg] ?? 15280;
+    const display = yAxisFormat === 'currency' ? `$${rawVal >= 1000000 ? (rawVal/1000000).toFixed(2)+'M' : rawVal >= 1000 ? (rawVal/1000).toFixed(0)+'k' : rawVal}`
+      : yAxisFormat === 'percent' ? `${(rawVal / BASE_KPI.count * 100).toFixed(1)}%`
+      : yAxisFormat === 'compact' ? (rawVal >= 1000000 ? `${(rawVal/1000000).toFixed(1)}M` : rawVal >= 1000 ? `${(rawVal/1000).toFixed(0)}K` : `${rawVal}`)
+      : rawVal.toLocaleString();
     return (
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:220,gap:8}}>
-        <div style={{fontFamily:'var(--font-display)',fontSize:48,fontWeight:800,color:getSeriesColor(0),lineHeight:1,letterSpacing:'-0.03em'}}>{kpiValue}</div>
-        <div style={{fontFamily:'var(--font-subheading)',fontSize:12,color:'var(--text-secondary)',fontWeight:500}}>{yMetrics[0]?.field || 'Metric'}</div>
+        <div style={{fontFamily:'var(--font-display)',fontSize:48,fontWeight:800,color:getSeriesColor(0),lineHeight:1,letterSpacing:'-0.03em'}}>{display}</div>
+        <div style={{fontFamily:'var(--font-subheading)',fontSize:12,color:'var(--text-secondary)',fontWeight:500}}>{label}</div>
       </div>
     );
   }
 
-  // ── Table type ─────────────────────────────────────────────────────────────
+  // ── Table type — use actual DB rows from saved table ───────────────────────
   if (chartType === 'table') {
-    const tsData = getTimeSeriesData().slice(0,6);
-    const cols = yMetrics.length > 0
-      ? ['label', ...yMetrics.map((_,i) => ['leads','sales','revenue'][i]||'leads')]
-      : ['label','leads','sales'];
+    const firstStrCol = currentTable?.cols?.find(c => c.type === 'str');
+    const defaultCols = firstStrCol ? [firstStrCol.name, 'Row Count'] : ['Row Count'];
+    const cols = tableColumns.length > 0 ? tableColumns : defaultCols;
+    const dbRows = db?.rows || [];
+    const colDefs = currentTable?.cols || [];
+    const getCellValue = (row, colName) => {
+      if (colName === 'Row Count') return null;
+      const idx = colDefs.findIndex(c => c.name === colName);
+      if (idx === -1) return '—';
+      return row[idx] != null ? String(row[idx]) : '—';
+    };
     return (
       <div style={{overflow:'auto',maxHeight:220,fontSize:11}}>
         <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -3680,11 +3823,17 @@ const MiniReportChart = ({ report, chartStyle }) => {
             <tr>{cols.map(c => <th key={c} style={{padding:'5px 10px',textAlign:'left',fontFamily:'var(--font-subheading)',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.07em',color:'var(--text-tertiary)',borderBottom:'1px solid var(--border)'}}>{c}</th>)}</tr>
           </thead>
           <tbody>
-            {tsData.map((row,i) => (
+            {dbRows.length > 0 ? dbRows.map((row,i) => (
               <tr key={i} style={{borderBottom:'1px solid var(--border)'}}>
-                {cols.map(c => <td key={c} style={{padding:'5px 10px',color:'var(--text-primary)'}}>{typeof row[c] === 'number' ? formatYValue(row[c]) : row[c]}</td>)}
+                {cols.map(c => (
+                  <td key={c} style={{padding:'5px 10px',color:'var(--text-primary)',maxWidth:160,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    {c === 'Row Count' ? i + 1 : getCellValue(row, c)}
+                  </td>
+                ))}
               </tr>
-            ))}
+            )) : (
+              <tr><td colSpan={cols.length} style={{textAlign:'center',padding:16,color:'var(--text-tertiary)'}}>No data</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -3693,7 +3842,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
 
   // ── Pie type ───────────────────────────────────────────────────────────────
   if (chartType === 'pie') {
-    const pieData = getBarData().map((d,i) => ({name:d.xLabel, value:d.value, fill:getSeriesColor(i)}));
+    const pieData = getBarData().map((d,i) => ({name:d.xLabel, value:d.s0, fill:getSeriesColor(i)}));
     return (
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
@@ -3707,18 +3856,21 @@ const MiniReportChart = ({ report, chartStyle }) => {
     );
   }
 
-  // ── Line / Area types ──────────────────────────────────────────────────────
+  // ── Line / Area types — N series with aggregation ─────────────────────────
   if (chartType === 'line' || chartType === 'area') {
-    const tsData = getTimeSeriesData();
-    const dataKeys = yMetrics.length > 0
-      ? yMetrics.map((_,i) => ['leads','sales','revenue'][i]||'leads')
-      : ['leads'];
+    const tsBase = getTimeSeriesData();
+    const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum'}];
+    const tsData = tsBase.map(d => {
+      const row = { label: d.label };
+      effectiveMetrics.forEach((m, i) => { row[`s${i}`] = getSeriesValue(m, d.leads, i); });
+      return row;
+    });
     const isFilled = chartType === 'area' && chartStyle !== 'outlined';
     return (
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={tsData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
           <defs>
-            {dataKeys.map((dk,i) => (
+            {effectiveMetrics.map((_,i) => (
               <linearGradient key={i} id={`mrcGrad${i}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor={getSeriesColor(i)} stopOpacity={isFilled?0.22:0}/>
                 <stop offset="95%" stopColor={getSeriesColor(i)} stopOpacity={0}/>
@@ -3728,39 +3880,38 @@ const MiniReportChart = ({ report, chartStyle }) => {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
           <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
           <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
-          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={v=>[formatYValue(v)]}/>
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
-          {dataKeys.map((dk,i) => (
-            <Area key={i} type="monotone" dataKey={dk}
+          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name) => [formatYValue(v), name]}/>
+          {effectiveMetrics.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
+          {effectiveMetrics.map((m,i) => (
+            <Area key={i} type="monotone" dataKey={`s${i}`}
               stroke={getSeriesColor(i)} strokeWidth={2}
               fill={`url(#mrcGrad${i})`}
               dot={showDataPoints?{r:4,fill:getSeriesColor(i),strokeWidth:0}:false}
               activeDot={{r:5}}
-              name={yMetrics[i]?.field || dk}/>
+              name={getMetricLabel(m, i)}/>
           ))}
         </AreaChart>
       </ResponsiveContainer>
     );
   }
 
-  // ── Row (horizontal bar) type ──────────────────────────────────────────────
+  // ── Row (horizontal bar) type — dynamic N series ──────────────────────────
   if (chartType === 'row') {
     const barData = getBarData();
+    const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
     return (
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={barData} layout="vertical" margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
           <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
           <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
-          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={v=>[formatYValue(v)]}/>
-          <Bar dataKey="value" fill={getSeriesColor(0)} radius={[0,4,4,0]} name={yMetrics[0]?.field||'Value'}>
-            {showDataPoints && <LabelList dataKey="value" position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
-          </Bar>
-          {yMetrics.length > 1 && (
-            <Bar dataKey="value2" fill={getSeriesColor(1)} radius={[0,4,4,0]} name={yMetrics[1]?.field||'Series 2'}>
-              {showDataPoints && <LabelList dataKey="value2" position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+          <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
+          {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
+          {effectiveMetrics.map((m, i) => (
+            <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
+              {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
             </Bar>
-          )}
+          ))}
         </BarChart>
       </ResponsiveContainer>
     );
@@ -3768,17 +3919,10 @@ const MiniReportChart = ({ report, chartStyle }) => {
 
   // ── Combo (ComposedChart — bars + lines + areas per metric) ──────────────
   if (chartType === 'combo') {
-    const tsData = getTimeSeriesData();
-    const seriesSeeds = [
-      (d) => d.leads,
-      (d) => Math.round(d.leads * 0.72 + 15),
-      (d) => Math.round(d.leads * 0.54 + 30),
-      (d) => Math.round(d.leads * 0.38 + 20),
-      (d) => Math.round(d.leads * 0.85 - 10),
-    ];
-    const comboData = tsData.map(d => {
+    const tsBase = getTimeSeriesData();
+    const comboData = tsBase.map(d => {
       const row = {label: d.label};
-      yMetrics.forEach((m, i) => { row[`series_${i}`] = seriesSeeds[i % seriesSeeds.length](d); });
+      yMetrics.forEach((m, i) => { row[`s${i}`] = getSeriesValue(m, d.leads, i); });
       return row;
     });
     return (
@@ -3790,9 +3934,9 @@ const MiniReportChart = ({ report, chartStyle }) => {
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name) => [formatYValue(v), name]}/>
           <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
           {yMetrics.map((m, i) => {
-            const key = `series_${i}`;
+            const key = `s${i}`;
             const color = getSeriesColor(i);
-            const name = m.field || `Series ${i+1}`;
+            const name = getMetricLabel(m, i);
             if (m.comboType === 'bar') {
               return (
                 <Bar key={key} dataKey={key} fill={color} radius={[3,3,0,0]} name={name}>
@@ -3803,7 +3947,6 @@ const MiniReportChart = ({ report, chartStyle }) => {
             if (m.comboType === 'area') {
               return <Area key={key} type="monotone" dataKey={key} stroke={color} fill={color} fillOpacity={0.15} strokeWidth={2} dot={showDataPoints?{r:4,fill:color,strokeWidth:0}:false} activeDot={{r:5}} name={name}/>;
             }
-            // default: line
             return <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={2} dot={showDataPoints?{r:4,fill:color,strokeWidth:0}:false} activeDot={{r:5}} name={name}/>;
           })}
         </ComposedChart>
@@ -3811,29 +3954,27 @@ const MiniReportChart = ({ report, chartStyle }) => {
     );
   }
 
-  // ── Default: Bar (vertical) ────────────────────────────────────────────────
+  // ── Default: Bar (vertical) — dynamic N series ────────────────────────────
   const barData = getBarData();
+  const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum', comboType:'bar'}];
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
         <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
         <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
-        <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={v=>[formatYValue(v)]}/>
-        <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
-        <Bar dataKey="value" fill={chartStyle==='outlined'?'transparent':getSeriesColor(0)} stroke={getSeriesColor(0)} strokeWidth={chartStyle==='outlined'?1.5:0} radius={[4,4,0,0]} name={yMetrics[0]?.field||'Series 1'}>
-          {showDataPoints && <LabelList dataKey="value" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
-        </Bar>
-        {yMetrics.length > 1 && (
-          <Bar dataKey="value2" fill={chartStyle==='outlined'?'transparent':getSeriesColor(1)} stroke={getSeriesColor(1)} strokeWidth={chartStyle==='outlined'?1.5:0} radius={[4,4,0,0]} name={yMetrics[1]?.field||'Series 2'}>
-            {showDataPoints && <LabelList dataKey="value2" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+        <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
+        {effectiveMetrics.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
+        {effectiveMetrics.map((m, i) => (
+          <Bar key={i} dataKey={`s${i}`}
+            fill={chartStyle==='outlined'?'transparent':getSeriesColor(i)}
+            stroke={getSeriesColor(i)}
+            strokeWidth={chartStyle==='outlined'?1.5:0}
+            radius={[4,4,0,0]}
+            name={getMetricLabel(m, i)}>
+            {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
           </Bar>
-        )}
-        {yMetrics.length > 2 && (
-          <Bar dataKey="value3" fill={chartStyle==='outlined'?'transparent':getSeriesColor(2)} stroke={getSeriesColor(2)} strokeWidth={chartStyle==='outlined'?1.5:0} radius={[4,4,0,0]} name={yMetrics[2]?.field||'Series 3'}>
-            {showDataPoints && <LabelList dataKey="value3" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
-          </Bar>
-        )}
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );
@@ -4590,10 +4731,22 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
   return (
     <div className="screen" style={{display:'flex',flexDirection:'column',height:'100%',overflow:'visible',position:'relative'}}>
       <div className="topbar">
-        <div className="breadcrumb">
-          <span className="breadcrumb-link" onClick={() => navigate('library')}>Dashboards</span>
-          <span className="breadcrumb-sep"><Icon name="chevronRight" size={12}/></span>
-          <span className="breadcrumb-current">{dashboard?.name || 'Sales Performance'}</span>
+        <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',gap:2}}>
+          <div className="breadcrumb" style={{fontSize:'11px'}}>
+            <span className="breadcrumb-link" onClick={() => navigate('library')}>Dashboards</span>
+            <span className="breadcrumb-sep"><Icon name="chevronRight" size={10}/></span>
+            <span style={{color:'var(--text-tertiary)'}}>{dashboard?.name || 'Sales Performance'}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+            <div style={{fontFamily:'var(--font-display)',fontSize:'15px',fontWeight:700,color:'var(--text-primary)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+              {dashboard?.name || 'Sales Performance'}
+            </div>
+            {dashboard?.desc && (
+              <span style={{fontSize:'12px',color:'var(--text-tertiary)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                · {dashboard.desc}
+              </span>
+            )}
+          </div>
         </div>
         <div className="topbar-actions">
           <button className="btn btn-ghost"><Icon name="download" size={13}/>Export</button>
@@ -4669,6 +4822,12 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
 
       {/* Filter bar */}
       <div className="filter-bar">
+        {activeFilters.length === 0 && (
+          <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,marginRight:4}}>
+            <Icon name="filter" size={11} style={{verticalAlign:'-1px',marginRight:4}}/>
+            No filters applied
+          </span>
+        )}
         {activeFilters.map((f, i) => (
           <div key={f.id} data-filter-pill style={{position:'relative',display:'inline-flex'}}>
             <button
@@ -4749,6 +4908,7 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
           onClick={e=>{e.stopPropagation();setShowFilterPicker(v=>!v);}}>
           <Icon name="filter" size={12}/> Add Filter
         </button>
+        <span style={{width:1,height:18,background:'var(--border)',margin:'0 4px',flexShrink:0}}/>
         <button
           className={`btn-edit-layout${editMode ? ' active' : ''}`}
           title={editMode ? 'Exit layout editing' : 'Edit dashboard layout'}
@@ -4809,6 +4969,21 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
         )}
 
           {/* WIDGET GRID CANVAS */}
+          {(liveLayout || widgetLayout).length === 0 ? (
+            <div className="empty-state" style={{paddingTop:64,paddingBottom:64,background:'var(--card-bg)',border:'1px dashed var(--border)',borderRadius:'var(--radius-lg)',marginBottom:'var(--space-lg)'}}>
+              <div className="empty-icon"><Icon name="chart" size={28}/></div>
+              <div className="empty-title">This dashboard is empty</div>
+              <div className="empty-desc">Add a report to get started, or create a new one in the Report Builder.</div>
+              <div style={{display:'flex',gap:8,marginTop:12}}>
+                <button className="btn btn-primary" onClick={() => setShowAddChart(true)}>
+                  <Icon name="plus" size={13}/>Add a Report
+                </button>
+                <button className="btn btn-ghost" onClick={() => navigate('questions')}>
+                  <Icon name="plus" size={13}/>Create New Report
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className={`dashboard-edit-canvas${editMode ? ' edit-active' : ''}`} style={{marginBottom:'var(--space-lg)'}}>
             <div
               className="dashboard-edit-grid"
@@ -5072,6 +5247,7 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
               })}
             </div>
           </div>
+          )}
 
           {/* Floating clone following the mouse while dragging */}
           {dragId && dragPos && (() => {
@@ -5607,6 +5783,9 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
   const [tableColumns, setTableColumns] = useState(editReport?.tableColumns || []);
   // drag state for table column reordering
   const [dragIdx, setDragIdx] = useState(null);
+  // drag state for filter row reordering (step 3): {id, fromGroupId|null}
+  const [filterDragId, setFilterDragId] = useState(null);
+  const [filterDropTarget, setFilterDropTarget] = useState(null); // {id, position:'before'|'after'}
   // resizable panel
   const [panelWidth, setPanelWidth] = useState(280);
   const resizeRef = React.useRef(null);
@@ -5710,43 +5889,58 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     return vals;
   };
 
-  // Dynamic bar/row preview data — responds to xAxis field, xIsDate, and yMetrics agg
+  // Per-series scaling factor — so multiple metrics on the same chart look distinct
+  // even when the underlying base data is the same. Series 0 = full scale, others
+  // proportionally smaller in a consistent pattern.
+  const SERIES_SCALE = [1.0, 0.72, 0.54, 0.38, 0.85, 0.62, 0.45, 0.30];
+  const getSeriesScale = (i) => SERIES_SCALE[i % SERIES_SCALE.length];
+
+  // Compute the displayed value for a single (metric, base) pair.
+  // baseVal is the "raw" sample value for the row; we scale it by the series index
+  // (so different metrics show different curves) and then apply the aggregation
+  // transformation so the displayed number reflects sum/avg/min/max/etc.
+  const getSeriesValue = (metric, baseVal, seriesIdx) => {
+    const scaled = Math.round(baseVal * getSeriesScale(seriesIdx));
+    return applyAgg(scaled, metric?.agg || 'sum');
+  };
+
+  // Dynamic bar/row preview data — N series, one per yMetric, all aggregation-aware.
+  // Each row contains: { xLabel, s0, s1, s2, ... sN-1 } keyed by series index.
   const getBarData = () => {
-    const agg0 = yMetrics[0]?.agg || 'sum';
-    const agg1 = yMetrics[1]?.agg || 'sum';
-    const agg2 = yMetrics[2]?.agg || 'sum';
-    // If X is a date field, use time-series data grouped by xDateGroup
+    // Determine the base numeric value for each X tick
+    let baseRows = [];
     if (xIsDate) {
-      return getTimeSeriesData().map(d => ({
-        xLabel: d.label,
-        value:  applyAgg(d.leads, agg0),
-        value2: applyAgg(Math.round(d.leads * 0.72 + 15), agg1),
-        value3: applyAgg(Math.round(d.leads * 0.54 + 30), agg2),
-      }));
-    }
-    // If X is a string field, generate labelled categorical data named after the selected column
-    const col = currentTable?.cols.find(c => c.name === xAxis);
-    const colName = xAxis || 'Category';
-    let labels = [];
-    if (col && currentTable) {
-      const colIdx = currentTable.cols.indexOf(col);
-      const seen = new Set();
-      for (const row of (currentDB?.rows || [])) {
-        const v = String(row?.[colIdx] ?? '');
-        if (v && !seen.has(v)) { seen.add(v); labels.push(v); }
-        if (labels.length >= 5) break;
+      baseRows = getTimeSeriesData().map(d => ({ xLabel: d.label, base: d.leads }));
+    } else {
+      const col = currentTable?.cols.find(c => c.name === xAxis);
+      const colName = xAxis || 'Category';
+      let labels = [];
+      if (col && currentTable) {
+        const colIdx = currentTable.cols.indexOf(col);
+        const seen = new Set();
+        for (const row of (currentDB?.rows || [])) {
+          const v = String(row?.[colIdx] ?? '');
+          if (v && !seen.has(v)) { seen.add(v); labels.push(v); }
+          if (labels.length >= 5) break;
+        }
       }
+      if (labels.length < 3) {
+        labels = [`${colName} A`, `${colName} B`, `${colName} C`, `${colName} D`, `${colName} E`];
+      }
+      const baseScale = [124, 98, 87, 62, 53];
+      baseRows = labels.slice(0, 5).map((lbl, i) => ({ xLabel: lbl, base: baseScale[i] * 1000 }));
     }
-    if (labels.length < 3) {
-      labels = [`${colName} A`, `${colName} B`, `${colName} C`, `${colName} D`, `${colName} E`];
-    }
-    const base = [124, 98, 87, 62, 53];
-    return labels.slice(0, 5).map((lbl, i) => ({
-      xLabel: lbl,
-      value:  applyAgg(base[i] * 1000, agg0),
-      value2: applyAgg(Math.round(base[i] * 0.72) * 1000, agg1),
-      value3: applyAgg(Math.round(base[i] * 0.54) * 1000, agg2),
-    }));
+
+    // Generate a row per X tick with one key per yMetric (s0, s1, s2, ...)
+    // If no yMetrics, fall back to a single default series so the chart isn't empty.
+    const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
+    return baseRows.map(({xLabel, base}) => {
+      const row = { xLabel };
+      effectiveMetrics.forEach((m, i) => {
+        row[`s${i}`] = getSeriesValue(m, base, i);
+      });
+      return row;
+    });
   };
 
   const previewData = [
@@ -5827,93 +6021,98 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     }
   };
 
+  // Format a metric's display name with its aggregation: "Sum of Revenue"
+  const getMetricLabel = (m, idx) => {
+    if (!m) return `Series ${idx + 1}`;
+    const aggLabels = {count:'Count of rows', sum:'Sum of', avg:'Avg of', distinct:'Distinct', min:'Min of', max:'Max of', stddev:'Std dev of', cumsum:'Cumulative sum of', cumcount:'Cumulative count of rows'};
+    if (m.field === 'Row Count' || m.agg === 'count' || m.agg === 'cumcount') return aggLabels[m.agg] || 'Count of rows';
+    return `${aggLabels[m.agg] || 'Sum of'} ${m.field}`;
+  };
+
   const renderPreview = () => {
     const axisStyle = {background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'};
     if (chartType === 'bar') {
       const barData = getBarData();
-      const xLabel = xAxis || 'Category';
+      const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
       return (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxis ? undefined : undefined}/>
+            <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
-            <Tooltip contentStyle={axisStyle} formatter={v => [formatYValue(v)]}/>
-            <Bar dataKey="value" fill={getSeriesColor(0)} radius={[4,4,0,0]} name={yMetrics[0]?.field || xLabel}>
-              {showDataPoints && <LabelList dataKey="value" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
-            </Bar>
-            {yMetrics.length > 1 && (
-              <Bar dataKey="value2" fill={getSeriesColor(1)} radius={[4,4,0,0]} name={yMetrics[1]?.field || 'Series 2'}>
-                {showDataPoints && <LabelList dataKey="value2" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+            <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
+            {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
+            {effectiveMetrics.map((m, i) => (
+              <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} radius={[4,4,0,0]} name={getMetricLabel(m, i)}>
+                {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
-            )}
-            {yMetrics.length > 2 && (
-              <Bar dataKey="value3" fill={getSeriesColor(2)} radius={[4,4,0,0]} name={yMetrics[2]?.field || 'Series 3'}>
-                {showDataPoints && <LabelList dataKey="value3" position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
-              </Bar>
-            )}
+            ))}
           </BarChart>
         </ResponsiveContainer>
       );
     }
     if (chartType === 'row') {
       const barData = getBarData();
+      const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
       return (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
             <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
-            <Tooltip contentStyle={axisStyle} formatter={v => [formatYValue(v)]}/>
-            <Bar dataKey="value" fill={getSeriesColor(0)} radius={[0,4,4,0]} name={yMetrics[0]?.field || 'Value'}>
-              {showDataPoints && <LabelList dataKey="value" position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
-            </Bar>
-            {yMetrics.length > 1 && (
-              <Bar dataKey="value2" fill={getSeriesColor(1)} radius={[0,4,4,0]} name={yMetrics[1]?.field || 'Series 2'}>
-                {showDataPoints && <LabelList dataKey="value2" position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
+            <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
+            {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
+            {effectiveMetrics.map((m, i) => (
+              <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
+                {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
-            )}
+            ))}
           </BarChart>
         </ResponsiveContainer>
       );
     }
     if (chartType === 'line') {
-      const tsData = getTimeSeriesData().map(d => ({
-        label: d.label,
-        leads:   applyAgg(d.leads,   yMetrics[0]?.agg || 'sum'),
-        sales:   applyAgg(d.sales,   yMetrics[1]?.agg || 'sum'),
-        revenue: applyAgg(d.revenue, yMetrics[2]?.agg || 'sum'),
-      }));
+      const tsBase = getTimeSeriesData();
+      const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum'}];
+      const tsData = tsBase.map(d => {
+        const row = { label: d.label };
+        effectiveMetrics.forEach((m, i) => {
+          row[`s${i}`] = getSeriesValue(m, d.leads, i);
+        });
+        return row;
+      });
       return (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
-            <Tooltip contentStyle={axisStyle} formatter={v => [formatYValue(v)]}/>
-            {yMetrics.length > 0
-              ? yMetrics.map((m,i) => {
-                  const dk = ['leads','sales','revenue'][i] || 'leads';
-                  return <Area key={i} type="monotone" dataKey={dk} stroke={getSeriesColor(i)} strokeWidth={2} fill="transparent" dot={showDataPoints ? {r:4, fill:getSeriesColor(i), strokeWidth:0} : false} activeDot={{r:5}} name={m.field}/>;
-                })
-              : <Area type="monotone" dataKey="leads" stroke={getSeriesColor(0)} strokeWidth={2} fill="transparent" dot={showDataPoints ? {r:4, fill:getSeriesColor(0), strokeWidth:0} : false} activeDot={{r:5}} name="Series 1"/>
-            }
+            <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
+            {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
+            {effectiveMetrics.map((m, i) => (
+              <Area key={i} type="monotone" dataKey={`s${i}`} stroke={getSeriesColor(i)} strokeWidth={2} fill="transparent"
+                dot={showDataPoints ? {r:4, fill:getSeriesColor(i), strokeWidth:0} : false}
+                activeDot={{r:5}} name={getMetricLabel(m, i)}/>
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       );
     }
     if (chartType === 'area') {
-      const tsData = getTimeSeriesData().map(d => ({
-        label: d.label,
-        leads:   applyAgg(d.leads,   yMetrics[0]?.agg || 'sum'),
-        sales:   applyAgg(d.sales,   yMetrics[1]?.agg || 'sum'),
-        revenue: applyAgg(d.revenue, yMetrics[2]?.agg || 'sum'),
-      }));
+      const tsBase = getTimeSeriesData();
+      const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum'}];
+      const tsData = tsBase.map(d => {
+        const row = { label: d.label };
+        effectiveMetrics.forEach((m, i) => {
+          row[`s${i}`] = getSeriesValue(m, d.leads, i);
+        });
+        return row;
+      });
       return (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
             <defs>
-              {[0,1,2].map(i => (
+              {effectiveMetrics.map((_, i) => (
                 <linearGradient key={i} id={`rbAreaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={getSeriesColor(i)} stopOpacity={0.25}/>
                   <stop offset="95%" stopColor={getSeriesColor(i)} stopOpacity={0}/>
@@ -5923,34 +6122,23 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
-            <Tooltip contentStyle={axisStyle} formatter={v => [formatYValue(v)]}/>
-            {yMetrics.length > 0
-              ? yMetrics.map((m,i) => {
-                  const dk = ['leads','sales','revenue'][i] || 'leads';
-                  return <Area key={i} type="monotone" dataKey={dk} stroke={getSeriesColor(i)} strokeWidth={2} fill={`url(#rbAreaGrad${i})`} dot={showDataPoints ? {r:4, fill:getSeriesColor(i), strokeWidth:0} : false} activeDot={{r:5}} name={m.field}/>;
-                })
-              : <Area type="monotone" dataKey="leads" stroke={getSeriesColor(0)} strokeWidth={2} fill="url(#rbAreaGrad0)" dot={showDataPoints ? {r:4, fill:getSeriesColor(0), strokeWidth:0} : false} activeDot={{r:5}} name="Series 1"/>
-            }
+            <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
+            {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
+            {effectiveMetrics.map((m, i) => (
+              <Area key={i} type="monotone" dataKey={`s${i}`} stroke={getSeriesColor(i)} strokeWidth={2} fill={`url(#rbAreaGrad${i})`}
+                dot={showDataPoints ? {r:4, fill:getSeriesColor(i), strokeWidth:0} : false}
+                activeDot={{r:5}} name={getMetricLabel(m, i)}/>
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       );
     }
     if (chartType === 'combo') {
-      const tsData = getTimeSeriesData();
-      // Generate varied but scale-consistent values for each series
-      // so all bars/lines are visible regardless of how many metrics are added
-      const seriesSeeds = [
-        (d) => d.leads,
-        (d) => Math.round(d.leads * 0.72 + 15),
-        (d) => Math.round(d.leads * 0.54 + 30),
-        (d) => Math.round(d.leads * 0.38 + 20),
-        (d) => Math.round(d.leads * 0.85 - 10),
-      ];
-      const comboData = tsData.map(d => {
-        const row = {label: d.label};
+      const tsBase = getTimeSeriesData();
+      const comboData = tsBase.map(d => {
+        const row = { label: d.label };
         yMetrics.forEach((m, i) => {
-          const baseVal = seriesSeeds[i % seriesSeeds.length](d);
-          row[`series_${i}`] = applyAgg(baseVal, m.agg || 'sum');
+          row[`s${i}`] = getSeriesValue(m, d.leads, i);
         });
         return row;
       });
@@ -5963,9 +6151,9 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
             {yMetrics.map((m, i) => {
-              const key = `series_${i}`;
+              const key = `s${i}`;
               const color = getSeriesColor(i);
-              const name = m.field || `Series ${i+1}`;
+              const name = getMetricLabel(m, i);
               if (m.comboType === 'bar') {
                 return (
                   <Bar key={key} dataKey={key} fill={color} radius={[3,3,0,0]} name={name}>
@@ -6704,12 +6892,91 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               conditions:[],
             });
 
+            // Reorder a top-level filter (by id) so it lands at the position of `targetId`.
+            // `position` = 'before' | 'after'. Operates on the top-level filters array only.
+            const reorderTopLevelFilter = (sourceId, targetId, position) => {
+              if (sourceId === targetId) return;
+              setFilters(prev => {
+                const fromIdx = prev.findIndex(f => f.id === sourceId);
+                const toIdx   = prev.findIndex(f => f.id === targetId);
+                if (fromIdx === -1 || toIdx === -1) return prev;
+                const next = [...prev];
+                const [moved] = next.splice(fromIdx, 1);
+                // After removal, find target again
+                let insertAt = next.findIndex(f => f.id === targetId);
+                if (insertAt === -1) insertAt = next.length;
+                if (position === 'after') insertAt += 1;
+                next.splice(insertAt, 0, moved);
+                return next;
+              });
+            };
+
+            // Reorder a condition within its parent group (groupId required).
+            const reorderConditionInGroup = (groupId, sourceId, targetId, position) => {
+              if (sourceId === targetId) return;
+              setFilters(prev => prev.map(g => {
+                if (g.id !== groupId || g.type !== 'group') return g;
+                const fromIdx = g.conditions.findIndex(c => c.id === sourceId);
+                const toIdx   = g.conditions.findIndex(c => c.id === targetId);
+                if (fromIdx === -1 || toIdx === -1) return g;
+                const nextConds = [...g.conditions];
+                const [moved] = nextConds.splice(fromIdx, 1);
+                let insertAt = nextConds.findIndex(c => c.id === targetId);
+                if (insertAt === -1) insertAt = nextConds.length;
+                if (position === 'after') insertAt += 1;
+                nextConds.splice(insertAt, 0, moved);
+                return { ...g, conditions: nextConds };
+              }));
+            };
+
+            // Decide drop position based on Y coordinate within target row.
+            const calcDropPosition = (e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              return (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+            };
+
             // Render a single filter row inline (NOT as a React component to avoid remount issues)
-            const renderFilterRow = (f, isFirst, onJunctionChange, onRemove) => {
+            // `parentGroupId` = id of the parent group if this row is inside one, else null
+            const renderFilterRow = (f, isFirst, onJunctionChange, onRemove, parentGroupId = null) => {
               const ops = OPS[f.colType] || OPS.str;
               const noVal = NO_VALUE_OPS.includes(f.op);
+              const isDraggingThis = filterDragId === f.id;
+              const isDropTarget   = filterDropTarget?.id === f.id;
+              const dropPos        = filterDropTarget?.position;
               return (
-                <div key={f.id} style={{display:'flex',alignItems:'center',gap:5,marginBottom:5,flexWrap:'nowrap'}}>
+                <div key={f.id}
+                  onDragOver={e => {
+                    if (filterDragId && filterDragId !== f.id) {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      const pos = calcDropPosition(e);
+                      if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
+                        setFilterDropTarget({ id: f.id, position: pos });
+                      }
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (filterDropTarget?.id === f.id) setFilterDropTarget(null);
+                  }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (!filterDragId || filterDragId === f.id) return;
+                    const pos = calcDropPosition(e);
+                    if (parentGroupId) {
+                      reorderConditionInGroup(parentGroupId, filterDragId, f.id, pos);
+                    } else {
+                      reorderTopLevelFilter(filterDragId, f.id, pos);
+                    }
+                    setFilterDragId(null);
+                    setFilterDropTarget(null);
+                  }}
+                  style={{
+                    display:'flex',alignItems:'center',gap:5,marginBottom:5,flexWrap:'nowrap',
+                    opacity: isDraggingThis ? 0.35 : 1,
+                    borderTop:    isDropTarget && dropPos === 'before' ? '2px solid var(--accent)' : '2px solid transparent',
+                    borderBottom: isDropTarget && dropPos === 'after'  ? '2px solid var(--accent)' : '2px solid transparent',
+                    transition: 'opacity 0.12s, border-color 0.12s',
+                  }}>
                   {/* Left label */}
                   {isFirst
                     ? <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,width:42,flexShrink:0}}>Where</span>
@@ -6756,8 +7023,17 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                     title="Remove" onClick={()=>onRemove(f.id)}>
                     <Icon name="trash" size={13}/>
                   </button>
-                  {/* Drag handle */}
-                  <span style={{color:'var(--text-tertiary)',fontSize:'14px',cursor:'grab',flexShrink:0,lineHeight:1,userSelect:'none'}}>⠿</span>
+                  {/* Drag handle — draggable */}
+                  <span
+                    draggable
+                    onDragStart={e => {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', String(f.id));
+                      setFilterDragId(f.id);
+                    }}
+                    onDragEnd={() => { setFilterDragId(null); setFilterDropTarget(null); }}
+                    title="Drag to reorder"
+                    style={{color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',fontSize:'14px',cursor: filterDragId ? 'grabbing' : 'grab',flexShrink:0,lineHeight:1,userSelect:'none',padding:'2px 4px'}}>⠿</span>
                 </div>
               );
             };
@@ -6781,8 +7057,39 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                     }
 
                     if (f.type === 'group') {
+                      const isDraggingThis = filterDragId === f.id;
+                      const isDropTarget   = filterDropTarget?.id === f.id;
+                      const dropPos        = filterDropTarget?.position;
                       return (
-                        <div key={f.id} style={{marginBottom:6}}>
+                        <div key={f.id}
+                          onDragOver={e => {
+                            if (filterDragId && filterDragId !== f.id) {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                              const pos = calcDropPosition(e);
+                              if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
+                                setFilterDropTarget({ id: f.id, position: pos });
+                              }
+                            }
+                          }}
+                          onDragLeave={() => {
+                            if (filterDropTarget?.id === f.id) setFilterDropTarget(null);
+                          }}
+                          onDrop={e => {
+                            e.preventDefault();
+                            if (!filterDragId || filterDragId === f.id) return;
+                            const pos = calcDropPosition(e);
+                            reorderTopLevelFilter(filterDragId, f.id, pos);
+                            setFilterDragId(null);
+                            setFilterDropTarget(null);
+                          }}
+                          style={{
+                            marginBottom:6,
+                            opacity: isDraggingThis ? 0.35 : 1,
+                            borderTop:    isDropTarget && dropPos === 'before' ? '2px solid var(--accent)' : '2px solid transparent',
+                            borderBottom: isDropTarget && dropPos === 'after'  ? '2px solid var(--accent)' : '2px solid transparent',
+                            transition: 'opacity 0.12s, border-color 0.12s',
+                          }}>
                           {/* Group's junction label on the left */}
                           <div style={{display:'flex',alignItems:'flex-start',gap:5,marginBottom:4}}>
                             {isFirst
@@ -6807,7 +7114,16 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                 <button style={{background:'none',border:'none',color:'var(--text-tertiary)',cursor:'pointer',padding:'2px 3px',display:'flex',alignItems:'center'}} title="Remove group" onClick={()=>removeGroup(f.id)}>
                                   <Icon name="trash" size={13}/>
                                 </button>
-                                <span style={{color:'var(--text-tertiary)',fontSize:'14px',cursor:'grab',lineHeight:1,userSelect:'none'}}>⠿</span>
+                                <span
+                                  draggable
+                                  onDragStart={e => {
+                                    e.dataTransfer.effectAllowed = 'move';
+                                    e.dataTransfer.setData('text/plain', String(f.id));
+                                    setFilterDragId(f.id);
+                                  }}
+                                  onDragEnd={() => { setFilterDragId(null); setFilterDropTarget(null); }}
+                                  title="Drag to reorder group"
+                                  style={{color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',fontSize:'14px',cursor: filterDragId ? 'grabbing' : 'grab',lineHeight:1,userSelect:'none',padding:'2px 4px'}}>⠿</span>
                               </div>
                               {/* Conditions inside group */}
                               {f.conditions.length === 0 && (
@@ -6818,7 +7134,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                               {f.conditions.length > 0 && (
                                 <div style={{padding:'8px 10px'}}>
                                   {f.conditions.map((c,ci) =>
-                                    renderFilterRow(c, ci===0, j=>updateFilter(c.id,{junction:j}), removeFilter)
+                                    renderFilterRow(c, ci===0, j=>updateFilter(c.id,{junction:j}), removeFilter, f.id)
                                   )}
                                 </div>
                               )}
