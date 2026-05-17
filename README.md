@@ -18,6 +18,8 @@ python3 -m http.server 8000
 
 Any static file server works (Node `http-server`, `npx serve`, VS Code Live Server, etc.). React, Babel, Recharts, and PropTypes are all loaded from CDN at runtime — there is **no `npm install` and no build step**.
 
+> Note: open the app through a local server (the `http.server` command above), not by double-clicking `index.html`. Opening it as a `file://` URL will block the CDN scripts and the app will render a blank page.
+
 ---
 
 ## Deploying
@@ -36,7 +38,7 @@ Because this is a pure static site, you can deploy it anywhere that serves files
 ```
 convergence-portal-v2/
 ├── index.html              # The entire application (single file)
-├── tweaks-panel.jsx        # Reusable Tweaks shell + form-control helpers
+├── tweaks-panel.jsx        # Reference copy of the Tweaks shell (already inlined in index.html)
 ├── assets/                 # Place brand logos here (see assets/README.md)
 │   └── README.md
 ├── uploads/                # Optional alternate image directory
@@ -44,15 +46,15 @@ convergence-portal-v2/
 └── README.md
 ```
 
-`index.html` and `tweaks-panel.jsx` are the only two source files. Everything else (data, components, styles, theming) lives inside `index.html`.
+`index.html` is fully self-contained — it is the only file required to run the app. `tweaks-panel.jsx` is a **reference copy** of the Tweaks panel module that is already inlined inside `index.html`; it is kept as a separate file so engineering can diff/extract it cleanly during the Vue migration. Editing it does **not** affect the running app unless you also update the inlined copy in `index.html`.
 
 ---
 
 ## What's in the App
 
 ### Top-level navigation (Convergence sidebar)
-1. **Pipelines** — campaign file uploads + scheduled appointment list
-2. **TouchPoints** *(default landing screen)* — 3-panel customer view: customer list / timeline / activity summary
+1. **Pipelines** — campaign file uploads + an **Integrations** tab (see below)
+2. **TouchPoints** — 3-panel customer view: customer list / timeline / activity summary
 3. **TrafficGauge** *(collapsible group)* — the full TrafficGauge reporting suite:
    - Dashboards (library + saved dashboards)
    - Report Builder
@@ -63,103 +65,52 @@ convergence-portal-v2/
 
 ### Persistent sidebar elements
 - **Dealership selector** — switch between Metro Automotive Group, Sunrise Honda, etc.
-- **Customer card** — name, customer ID, phone, email
-- **TrafficGauge group** — auto-expands when any TG sub-screen is active
+- **Customer card** — current customer context
+- **Style / Tweaks panel** — runtime theming and layout controls (prototyping tool)
 
-### Tweaks panel (bottom-right gear icon)
-- **Theme:** Electric (default), Neon, Dark Mode
-- **Sidebar:** Full / Icons / Hidden
-- **Density:** Compact / Default / Spacious
-- **Chart Style:** Filled / Outlined / Minimal
+### New in V2: Pipelines → Integrations
+The **Pipelines** screen now has two tabs: **Files** and **Integrations**.
 
----
+The Integrations tab shows a card grid of available connectors:
 
-## Theming & Brand
+- **Inventory** — *"Bring in your inventory right from your website"* — **active / wired**
+- DMS Sync, CRM Connector, Website Tracking, Email Platform, Service Scheduler — *"Coming soon"* placeholders so the screen feels populated
 
-CSS variables drive all theming. Colors and fonts match the Convergence Brand Guidelines:
+Clicking the **Inventory** card connects it: a new **Inventory** data source is added under **TrafficGauge → Data Sources**, and the app jumps you straight there so you can browse the table just like Calendar Events, Phone Calls, etc. Connected integrations switch to a **"Connected"** badge with a **"View data"** action.
 
-| Token | Color | Use |
-|-------|-------|-----|
-| Electric | `#5E10BC` | Primary accent |
-| Neon | `#80E55C` | Success / positive metrics |
-| Citrine | `#F7E74B` | Highlight / engagement |
-| Jet | `#000000` | Primary text on light backgrounds |
-| Lavender | `#D4C9F4` | Secondary accent |
-| Purple Mid | `#7E54D9` | Secondary accent |
-| Mint | `#ADF792` | Secondary accent |
-| Off-White | `#EFEDE8` | Canvas background |
-
-**Fonts:**
-- **Rubik** — display / headings
-- **Inter Tight** — subheadings, labels, chips
-- **Inter** — body copy
-
-All three are loaded from Google Fonts at runtime.
+**Connection state persists in `localStorage`** under the key `cx_integrations` (an array of enabled integration ids). Clearing site data or using a different browser resets it.
 
 ---
 
-## Engineering Handoff: Vue Migration Plan
+## State & Persistence (localStorage keys)
 
-This MVP is built in **React 18 + Recharts** (CDN, no build step). The intended production stack is **Vue 3** (matching the rest of the Convergence Portal codebase). Suggested migration path:
+This MVP persists a few things client-side via `localStorage`. Engineering should replace each of these with server-side persistence in the Vue version:
 
-### 1. Stand up a Vite + Vue 3 project
-Use Vue 3 + `<script setup>` with TypeScript. Install Vuetify 3 to match the design system already used in the legacy `Convergence_Portal.html`.
-
-### 2. Port screens one at a time, in this order
-The most isolated screens are easiest. Recommended sequence:
-
-1. **PipelinesScreen** → Vue component. ~150 lines of JSX, mostly static.
-2. **PortfolioScreen** → Vue component. KPI cards + list, very straightforward.
-3. **WeaveScreen** → Vue component. KPI cards + table.
-4. **TouchPointsScreen** → Vue component. The most complex of the four — 3-panel layout, customer selection, computed counts/sums from timeline events.
-5. **TrafficGauge screens** (`LibraryScreen`, `DashboardScreen`, `ReportBuilderScreen`, `DataSourcesScreen`, `BuilderScreen`) — the largest port. These use Recharts; swap for `vue-chartjs` or `apexcharts` to match the rest of the portal.
-
-### 3. Extract data
-All seed data (customers, transactions, calls, campaign stats, etc.) is in `index.html` near the top of the `<script type="text/babel">` block:
-
-- `CX_DEALERS`, `CX_CURRENT_CUSTOMER`
-- `CX_APPOINTMENTS_INIT`, `CX_PORTFOLIO_KPIS`, `CX_PORTFOLIO_TXNS`, `CX_WEAVE_KPIS`, `CX_CALLS`
-- `CX_CUSTOMERS` (with full timeline per customer)
-- `TP_TYPE` (TouchPoints event type → label/icon/color metadata)
-- TrafficGauge-specific data: `monthlyLeads`, `inventoryByMake`, etc. starting around line 1525
-
-Move these into a `/src/data/` directory or — for production — replace with API calls to a real backend.
-
-### 4. Theming
-The CSS variables defined under `:root`, `[data-theme="sage"]`, and `[data-theme="dark"]` in the `<style>` block in `index.html` are framework-agnostic — copy them verbatim into Vuetify's theme configuration or a global stylesheet.
-
-### 5. Tweaks panel
-`tweaks-panel.jsx` is a stylable prototyping shell that listens for `__activate_edit_mode` / `__deactivate_edit_mode` parent-window messages. **This is a prototyping convenience, not a production feature.** In the Vue rewrite, replace it with a proper Vuetify settings dialog or drawer that persists user preferences to `localStorage` or the user profile API.
-
-### 6. Image assets
-See `assets/README.md` for the list of brand logo files you need to drop into `/assets/`. The app references them by path (`assets/logo-horizontal.png`); both React and Vue versions can share the same asset folder.
+| Key                 | Purpose                                                      |
+|---------------------|--------------------------------------------------------------|
+| `cx_integrations`   | Array of enabled integration ids (Pipelines → Integrations)  |
+| `tg_widget_layouts` | Per-dashboard widget layout positions                        |
+| `tg_*` (tweaks)     | Tweaks-panel theme / density / chart-style preferences        |
 
 ---
 
-## What's Intentionally Missing (Known MVP Limitations)
+## Engineering Handoff — Vue Migration Notes
 
-- **No backend.** All data is hardcoded seed data in `index.html`. Wire to your API during the Vue conversion.
-- **No auth.** Add session handling during conversion.
-- **No persistence.** State resets on page reload. The Tweaks panel uses `localStorage` for *visual* settings only.
-- **No real file uploads.** The Pipelines "Upload File" button captures a filename but does not transmit anything.
-- **Brand logos are referenced but not bundled.** See `assets/README.md`.
+The MVP is intentionally built in React to match the existing TrafficGauge codebase and preserve design fidelity. The production target is Vue. Suggested approach:
 
----
-
-## File Map
-
-| File | Purpose |
-|------|---------|
-| `index.html` | Entire app: HTML shell, CSS theme, React script, all screen components |
-| `tweaks-panel.jsx` | Tweaks panel + form-control helpers (loaded by `index.html`) |
-| `assets/README.md` | Brand logo asset checklist |
+1. **Stand up the Vue shell first** — sidebar, routing, theming tokens (the CSS custom properties in the `:root` block of `index.html` are framework-agnostic and can be lifted directly).
+2. **Port the simplest screens first**, in this order: Pipelines → Portfolio → Weave → TouchPoints. These have minimal interactivity and shared data shapes.
+3. **Port TrafficGauge last** — it is the largest and most stateful surface (Report Builder, Dashboards, Data Sources). The Report Builder's chart rendering uses Recharts; pick a Vue charting equivalent (e.g. `vue-chartjs` or ECharts) early so the data adapters are written once.
+4. **Replace all seed data with API calls.** The seed data is hardcoded near the top of the script block in `index.html`. Search for these identifiers:
+   - `CX_DEALERS`, `CX_CURRENT_CUSTOMER`, `CX_APPOINTMENTS_INIT`, `CX_PORTFOLIO_KPIS` — Convergence Portal data
+   - `DATABASES`, `INVENTORY_DATASOURCE` — TrafficGauge data sources
+   - `INTEGRATIONS_CATALOG` — the Integrations card grid (only `inventory` is wired; the rest are `comingSoon` placeholders)
+5. **Replace `localStorage` with real persistence** for the keys listed in the table above.
+6. **The Tweaks / Style panel is a prototyping tool, not a production feature.** In the Vue rewrite, replace it with a real settings UI (or remove it entirely). `tweaks-panel.jsx` is the isolated reference for what it does.
 
 ---
 
-## Credits
+## Notes
 
-V1 source projects merged into V2:
-- **Convergence Portal** (Vue 3 + Vuetify) — Pipelines, Portfolio, TouchPoints, Weave
-- **TrafficGauge** (React 18 + Recharts) — Dashboards, Report Builder, Data Sources, Starred
-
-Brand guidelines: `Convergence_BrandGuidelines_update.pdf`
+- All seed data (dealership names, customer names, phone numbers, transaction history) is **fictional demo data** carried over from the original prototype files. Review it before making the repo or any deployment public.
+- The sidebar logo loads from `assets/logo-horizontal.png`. If that file is absent, the app falls back gracefully to a text/"C" mark — see `assets/README.md`.
