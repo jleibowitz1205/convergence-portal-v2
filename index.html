@@ -5008,11 +5008,25 @@ const MiniReportChart = ({ report, chartStyle }) => {
 
   const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
   const getSeriesColor = (i) => seriesColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
-  // Per-series sizing — mirrors the Report Builder mapping
-  const MRC_BAR_SIZE    = { sm: 10, md: 18, lg: 30 };
-  const MRC_STROKE_SIZE = { sm: 1.5, md: 2.5, lg: 4 };
-  const getBarSize    = (i) => MRC_BAR_SIZE[seriesSizes[i] || 'md'] || MRC_BAR_SIZE.md;
-  const getStrokeSize = (i) => MRC_STROKE_SIZE[seriesSizes[i] || 'md'] || MRC_STROKE_SIZE.md;
+  // Per-series sizing — mirrors the Report Builder. Bars fill their category
+  // band; Small/Medium/Large controls the gap between groups (less gap = wider
+  // bars that use more of the widget's real estate).
+  const MRC_BAR_CATEGORY_GAP = { sm: '45%', md: '22%', lg: '8%' };
+  const MRC_BAR_MAX_SIZE     = { sm: 40,    md: 70,    lg: 120  };
+  const MRC_STROKE_SIZE      = { sm: 1.5,   md: 3,     lg: 6    };
+  const mrcSizeRank = { sm: 0, md: 1, lg: 2 };
+  const mrcDominantSize = () => {
+    if (!yMetrics.length) return 'md';
+    let best = 'md', bestRank = -1;
+    yMetrics.forEach((_, i) => {
+      const s = seriesSizes[i] || 'md';
+      if (mrcSizeRank[s] > bestRank) { bestRank = mrcSizeRank[s]; best = s; }
+    });
+    return best;
+  };
+  const getBarCategoryGap = () => MRC_BAR_CATEGORY_GAP[mrcDominantSize()] || MRC_BAR_CATEGORY_GAP.md;
+  const getMaxBarSize    = (i) => MRC_BAR_MAX_SIZE[seriesSizes[i] || 'md'] || MRC_BAR_MAX_SIZE.md;
+  const getStrokeSize    = (i) => MRC_STROKE_SIZE[seriesSizes[i] || 'md'] || MRC_STROKE_SIZE.md;
 
   const formatYValue = (v) => {
     if (yAxisFormat === 'currency') return `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`;
@@ -5240,14 +5254,14 @@ const MiniReportChart = ({ report, chartStyle }) => {
     const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
     return (
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={barData} layout="vertical" margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
+        <BarChart data={barData} layout="vertical" barCategoryGap={getBarCategoryGap()} margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
           <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
           <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
           {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m, i) => (
-            <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
+            <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} maxBarSize={getMaxBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
               {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
             </Bar>
           ))}
@@ -5266,7 +5280,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
     });
     return (
       <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={comboData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
+        <ComposedChart data={comboData} barCategoryGap={getBarCategoryGap()} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
           <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
           <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
@@ -5278,7 +5292,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
             const name = getMetricLabel(m, i);
             if (m.comboType === 'bar') {
               return (
-                <Bar key={key} dataKey={key} fill={color} barSize={getBarSize(i)} radius={[3,3,0,0]} name={name}>
+                <Bar key={key} dataKey={key} fill={color} maxBarSize={getMaxBarSize(i)} radius={[3,3,0,0]} name={name}>
                   {showDataPoints && <LabelList dataKey={key} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
                 </Bar>
               );
@@ -5298,7 +5312,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum', comboType:'bar'}];
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
+      <BarChart data={barData} barCategoryGap={getBarCategoryGap()} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
         <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
         <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
@@ -5309,7 +5323,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
             fill={chartStyle==='outlined'?'transparent':getSeriesColor(i)}
             stroke={getSeriesColor(i)}
             strokeWidth={chartStyle==='outlined'?1.5:0}
-            barSize={getBarSize(i)}
+            maxBarSize={getMaxBarSize(i)}
             radius={[4,4,0,0]}
             name={getMetricLabel(m, i)}>
             {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
@@ -7175,10 +7189,32 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     next[i] = size;
     return next;
   });
-  const BAR_SIZE_PX    = { sm: 12, md: 22, lg: 38 };
-  const STROKE_SIZE_PX = { sm: 1.5, md: 3, lg: 6 };
-  const getBarSize    = (i) => BAR_SIZE_PX[getSeriesSize(i)] || BAR_SIZE_PX.md;
-  const getStrokeSize = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
+  // Bar sizing strategy: instead of a fixed pixel width (which leaves big
+  // empty gaps and makes bars look tiny regardless of chart width), bars now
+  // FILL their category band. Small/Medium/Large maps to the gap BETWEEN
+  // category groups — a smaller gap means fatter bars that use more of the
+  // chart's real estate. maxBarSize is a generous cap so single wide bars
+  // don't become absurdly thick.
+  //   - barCategoryGap: space between category groups (less gap = wider bars)
+  //   - maxBarSize:     ceiling so a lone bar still looks reasonable
+  const BAR_CATEGORY_GAP = { sm: '45%', md: '22%', lg: '8%' };
+  const BAR_MAX_SIZE     = { sm: 48,    md: 84,    lg: 140  };
+  const STROKE_SIZE_PX   = { sm: 1.5,   md: 3,     lg: 6    };
+  // Bars on a chart share one category gap; use the largest selected series'
+  // size so the overall layout opens up if ANY series is set to Large.
+  const sizeRank = { sm: 0, md: 1, lg: 2 };
+  const dominantBarSize = () => {
+    if (!yMetrics.length) return 'md';
+    let best = 'md', bestRank = -1;
+    yMetrics.forEach((_, i) => {
+      const s = getSeriesSize(i);
+      if (sizeRank[s] > bestRank) { bestRank = sizeRank[s]; best = s; }
+    });
+    return best;
+  };
+  const getBarCategoryGap = () => BAR_CATEGORY_GAP[dominantBarSize()] || BAR_CATEGORY_GAP.md;
+  const getMaxBarSize    = (i) => BAR_MAX_SIZE[getSeriesSize(i)] || BAR_MAX_SIZE.md;
+  const getStrokeSize    = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
 
   // Resolve how series `i` is actually drawn on the current chart:
   // returns 'bar' | 'line' | 'area' | null. For combo charts this respects
@@ -7427,14 +7463,14 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
+          <BarChart key={metricSig} data={barData} barCategoryGap={getBarCategoryGap()} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[4,4,0,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
+              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} maxBarSize={getMaxBarSize(i)} radius={[4,4,0,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
                 {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
             ))}
@@ -7448,14 +7484,14 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
+          <BarChart key={metricSig} data={barData} layout="vertical" barCategoryGap={getBarCategoryGap()} margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
             <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
+              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} maxBarSize={getMaxBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
                 {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
             ))}
@@ -7541,7 +7577,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}:${m.comboType}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart key={metricSig} data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
+          <ComposedChart key={metricSig} data={comboData} barCategoryGap={getBarCategoryGap()} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
@@ -7556,7 +7592,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               const reactKey = `${m.mid || i}-${m.comboType}-${m.agg}`;
               if (m.comboType === 'bar') {
                 return (
-                  <Bar key={reactKey} dataKey={key} fill={color} barSize={getBarSize(i)} radius={[3,3,0,0]} name={name} isAnimationActive={false}>
+                  <Bar key={reactKey} dataKey={key} fill={color} maxBarSize={getMaxBarSize(i)} radius={[3,3,0,0]} name={name} isAnimationActive={false}>
                     {showDataPoints && <LabelList dataKey={key} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
                   </Bar>
                 );
@@ -8813,7 +8849,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                 const isActive = curSize === opt.id;
                                 // visual preview bar/line for the option
                                 const previewThickness = sizeKind === 'bar'
-                                  ? {sm:6, md:11, lg:18}[opt.id]
+                                  ? {sm:10, md:18, lg:28}[opt.id]
                                   : {sm:2, md:4, lg:7}[opt.id];
                                 return (
                                   <button key={opt.id} onClick={()=>setSeriesSize(selectedSeriesIdx, opt.id)}
