@@ -28,7 +28,7 @@
     --brand-electric: #5E10BC;
     --brand-electric-deep: #4a0d96;
     --brand-neon: #80E55C;
-    --brand-citrine: #F7E749;
+    --brand-citrine: #F7E74B;
     --brand-jet: #000000;
     --brand-lavender: #D4C9F4;
     --brand-mint: #ADF792;
@@ -61,7 +61,7 @@
     --danger: #ef4444;
     --chart-1: #5E10BC;
     --chart-2: #80E55C;
-    --chart-3: #F7E749;
+    --chart-3: #F7E74B;
     --chart-4: #7E54D9;
     --chart-5: #ADF792;
 
@@ -89,7 +89,7 @@
     --accent-dark: #2a9020;
     --chart-1: #80E55C;
     --chart-2: #5E10BC;
-    --chart-3: #F7E749;
+    --chart-3: #F7E74B;
     --chart-4: #7E54D9;
     --chart-5: #ADF792;
   }
@@ -118,7 +118,7 @@
     --badge-text: #8b80a8;
     --chart-1: #7E54D9;
     --chart-2: #80E55C;
-    --chart-3: #F7E749;
+    --chart-3: #F7E74B;
     --chart-4: #c49dff;
     --chart-5: #ADF792;
   }
@@ -2995,7 +2995,7 @@ Object.assign(window, {
 
 
 
-const { useState, useEffect, useRef, useCallback } = React;
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
 const {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
   PieChart, Pie, Cell, ResponsiveContainer,
@@ -3217,6 +3217,35 @@ const DATABASES = [
   },
 ];
 
+// ─── INVENTORY INTEGRATION DATA ──────────────────────────────────────────────
+// Sample rows derived from a dealer inventory CSV — represents what a connected
+// inventory feed would surface in the Data Sources tab.
+const INVENTORY_ROWS = [["BMW of Spokane","WBSAE0C05RCR94702","2024","BMW","M8","M8 Competition","https://www.bmwofspokane.com/new-Spokane-2024-BMW-M8-Competition-WBSAE0C05RCR94702","BMW99207","5/13/2026 2:12pm","Gasoline"],["BMW of Spokane","1C6RRFFG3LN263375","2020","Ram","1500","Big Horn, Lonestar","https://www.bmwofspokane.com/used-Spokane-2020-RAM-1500-Big+Horn-1C6RRFFG3LN263375","BMW99207","5/13/2026 2:12pm","Gasoline"],["Bobby Rahal Honda","5TDHBRCH5MS519924","2021","Toyota","Highlander","XLE Nav","https://www.bobbyrahalhonda.com/viewdetails/used/5tdhbrch5ms519924/2021-toyota-highlander","HON207745","5/13/2026 2:13pm","Hybrid"],["Chuck Patterson Toyota","JTM7ERAV2T120AZ00","2026","Toyota","RAV4 Prime (PHEV)","GR Sport","https://www.chuckpattersontoyota.net/new-Chico-2026-Toyota-RAV4+Plug+in+Hybrid-XSE-JTM7ERAV2T120AZ00","TOY39123378996","5/13/2026 2:14pm","Hybrid"],["Empire Hyundai of Jamaica","5NMP5DG14TH090781","2026","Hyundai","Santa Fe","Calligraphy","https://www.shopempirehyundaiofjamaica.com/new-Jamaica-2026-Hyundai-Santa+Fe+Hybrid-Calligraphy-5NMP5DG14TH090781","HYN147","5/13/2026 2:17pm","Hybrid"],["Empire Hyundai of Jamaica","7YAKNDDC3TY057748","2026","Hyundai","Ioniq 5","SEL","https://www.shopempirehyundaiofjamaica.com/new-Jamaica-2026-Hyundai-IONIQ+5-SEL-7YAKNDDC3TY057748","HYN147","5/13/2026 2:17pm","Electric"],["Empire Hyundai of Jamaica","3N1AB8CV1RY217051","2024","Nissan","Sentra","SV","https://www.shopempirehyundaiofjamaica.com/used-Jamaica-2024-Nissan-Sentra-SV+Xtronic+CVT-3N1AB8CV1RY217051","HYN147","5/13/2026 2:17pm","Gasoline"],["Empire Hyundai of Jamaica","4T1G11BK1PU101367","2023","Toyota","Camry","SE","https://www.shopempirehyundaiofjamaica.com/used-Jamaica-2023-Toyota-Camry-SE-4T1G11BK1PU101367","HYN147","5/13/2026 2:17pm","Gasoline"],["Empire Hyundai of Jamaica","1GNEVGRS6SJ261593","2025","Chevrolet","Traverse","LT","https://www.shopempirehyundaiofjamaica.com/used-Jamaica-2025-Chevrolet-Traverse-LT-1GNEVGRS6SJ261593","HYN147","5/13/2026 2:18pm","Gasoline"],["Empire Subaru","JF2BUPBD6TY535198","2026","Subaru","Outback","Premium","https://www.shopempiresubaru.com/new-Huntington-2026-Subaru-OUTBACK-Premium-JF2BUPBD6TY535198","SUB402808","5/13/2026 2:21pm","Gasoline"],["Empire Subaru","2HGFE1F9XNH326058","2022","Honda","Civic","Touring","https://www.shopempiresubaru.com/used-Huntington-2022-Honda-Civic+Sedan-Touring-2HGFE1F9XNH326058","SUB402808","5/13/2026 2:21pm","Gasoline"],["Empire Subaru","1GCPKKEKXTZ125246","2026","Chevrolet","Silverado","LT-L","https://www.shopempiresubaru.com/used-Huntington-2026-Chevrolet-Silverado+1500-LT+2FL-1GCPKKEKXTZ125246","SUB402808","5/13/2026 2:21pm","Gasoline"],["Jim Shorkey CDJR North Hills","1C4RJHBR4TC202616","2026","Jeep","Grand Cherokee","Limited","https://www.jimshorkeynorthhillschryslerdodgejeepram.com/new-Pittsburgh-2026-Jeep-Grand+Cherokee-LIMITED+4X4-1C4RJHBR4TC202616","CDJ2511","5/13/2026 2:23pm","Gasoline"],["Jim Shorkey CDJR North Hills","1C4RJKBG9N8512388","2022","Jeep","Grand Cherokee L","Limited","https://www.jimshorkeynorthhillschryslerdodgejeepram.com/used-Pittsburgh-2022-Jeep-Grand+Cherokee+L-Limited+4x4-1C4RJKBG9N8512388","CDJ2511","5/13/2026 2:23pm","Gasoline"],["Jim Shorkey Chevy North Hills","KL79MSSL9TB163248","2026","Chevrolet","Trailblazer","ACTIV","https://www.jimshorkeynorthhillschevy.com/new-Bakerstown-2026-Chevrolet-Trailblazer-ACTIV-KL79MSSL9TB163248","CHV2844","5/13/2026 2:25pm","Gasoline"],["Len Stoler Chevrolet","3GNAXPEG6TL441273","2026","Chevrolet","Equinox","2LT","https://www.lenstolerchevrolet.com/new-Westminster-2026-Chevrolet-Equinox-LT-3GNAXPEG6TL441273","CHV161235","5/13/2026 2:30pm","Gasoline"],["Len Stoler Chevrolet","3VVSX7B20RM017193","2024","Volkswagen","Taos","SE","https://www.lenstolerchevrolet.com/used-Westminster-2024-Volkswagen-Taos-SE-3VVSX7B20RM017193","CHV161235","5/13/2026 2:30pm","Gasoline"],["Len Stoler Chevrolet","5FNYG1H64RB011403","2024","Honda","Pilot","TRAILSPORT","https://www.lenstolerchevrolet.com/used-Westminster-2024-Honda-Pilot-TrailSport-5FNYG1H64RB011403","CHV161235","5/13/2026 2:31pm","Gasoline"],["Len Stoler Chevrolet","JF2SJGDC5GH542307","2016","Subaru","Forester","Premium + MR","https://www.lenstolerchevrolet.com/used-Westminster-2016-Subaru-Forester-20XT+Premium-JF2SJGDC5GH542307","CHV161235","5/13/2026 2:31pm","Gasoline"],["Mechanicsville Toyota","4T1DAACK8TU20C728","2026","Toyota","Camry","LE","https://www.mechanicsvilletoyota.com/inventory/New-2026-Toyota-Camry-LE-4T1DAACK8TU20C728/","TOY45074","5/13/2026 2:34pm","Hybrid"],["Medlin Hyundai","5NMJE3DE5TH666465","2026","Hyundai","Tucson","Limited","https://www.medlinhyundai.com/new-Rocky+Mount-2026-Hyundai-Tucson-Limited-5NMJE3DE5TH666465","HYN44331457566","5/13/2026 2:35pm","Gasoline"],["Medlin Hyundai","1GKS2CRD5SR259967","2025","GMC","Yukon","AT4","https://www.medlinhyundai.com/used-Rocky+Mount-2025-GMC-Yukon-AT4-1GKS2CRD5SR259967","HYN44331457566","5/13/2026 2:36pm","Gasoline"],["Orem Toyota","7MUDAABG4TV21B471","2026","Toyota","Corolla Cross","XLE","https://www.oremtoyota.com/new-Orem-2026-Toyota-Corolla+Cross-XLE-7MUDAABG4TV21B471","TOY43028","5/13/2026 2:37pm","Gasoline"],["Orem Toyota","JTEABFAJ0RK010694","2024","Toyota","Land Cruiser","1958","https://www.oremtoyota.com/used-Orem-2024-Toyota-LANDCRUISER+1958-JTEABFAJ0RK010694","TOY43028","5/13/2026 2:38pm","Hybrid"],["Shaver Cars","1G6KD5RS4JU154920","2022","Cadillac","XT5","Luxury","https://shavercars.com/cars/used/1g6kd5rs4ju154920","USED53528652","5/13/2026 2:39pm","Gasoline"],["Sir Walter Chevrolet","3GCUKCE88TG364288","2026","Chevrolet","Silverado","Trail Boss Custom","https://www.sirwalter.com/new-Raleigh-2026-Chevrolet-Silverado+1500-Custom+Trail+Boss-3GCUKCE88TG364288","CHV53392360","5/13/2026 2:41pm","Diesel"],["Stoler Chevrolet Owings Mills","1GNS5BED0TR288174","2026","Chevrolet","Suburban","LS","https://www.stolerchevroletowingsmills.com/new-Owings+Mills-2026-Chevrolet-Suburban-LS-1GNS5BED0TR288174","CHV41596007","5/13/2026 2:43pm","Gasoline"],["Stoler Chevrolet Owings Mills","WDD3G4FBXKW020044","2019","Mercedes-Benz","A-Class","A220 4M","https://www.stolerchevroletowingsmills.com/used-Owings+Mills-2019-Mercedes+Benz-A+220-WDD3G4FBXKW020044","CHV41596007","5/13/2026 2:43pm","Gasoline"],["Stoler Chevrolet Owings Mills","2T2AGCEZ0SC073933","2025","Lexus","NX","350 Base","https://www.stolerchevroletowingsmills.com/used-Owings+Mills-2025-Lexus-NX-350+AWD-2T2AGCEZ0SC073933","CHV41596007","5/13/2026 2:43pm","Gasoline"],["Union Park Honda","5TDKDRBH5PS036049","2023","Toyota","Highlander","Platinum","https://www.unionparkhonda.com/viewdetails/used/5tdkdrbh5ps036049/2023-toyota-highlander","HON37478454","5/13/2026 2:46pm","Gasoline"]];
+
+const INVENTORY_DATASOURCE = {
+  id:'inventory', name:'Inventory', icon:'🚗',
+  headers: ['Dealership','VIN','Year','Make','Model','Trim','Vehicle URL','Client Key','Created','Fuel Type'],
+  rows: INVENTORY_ROWS,
+  tables: [{ name:'inventory', cols: [
+    {name:'Dealership',type:'str'},{name:'VIN',type:'str'},{name:'Year',type:'num'},
+    {name:'Make',type:'str'},{name:'Model',type:'str'},{name:'Trim',type:'str'},
+    {name:'Vehicle URL',type:'str'},{name:'Client Key',type:'str'},
+    {name:'Created',type:'date'},{name:'Fuel Type',type:'str'},
+  ]}],
+};
+
+// Catalog of integrations available in the Convergence Portal.
+// The first is the only one that's actually wired — the rest are presentational
+// "coming soon" placeholders.
+const INTEGRATIONS_CATALOG = [
+  { id:'inventory',  name:'Inventory',          icon:'🚗', color:'#5E10BC', desc:'Bring in your inventory right from your website',           dbDef: INVENTORY_DATASOURCE },
+  { id:'dms',        name:'DMS Sync',           icon:'🗄️', color:'#0ea5e9', desc:'Sync transactions and repair orders from your DMS',         comingSoon:true },
+  { id:'crm',        name:'CRM Connector',      icon:'🔄', color:'#22c55e', desc:'Connect your CRM to push and pull contacts',                comingSoon:true },
+  { id:'website',    name:'Website Tracking',   icon:'🌐', color:'#f59e0b', desc:'Drop a pixel and capture every visitor session',            comingSoon:true },
+  { id:'email',      name:'Email Platform',     icon:'✉️', color:'#ec4899', desc:'Sync sends, opens and clicks from your ESP',                comingSoon:true },
+  { id:'service',    name:'Service Scheduler',  icon:'🔧', color:'#7E54D9', desc:'Pull live service appointments straight from the scheduler',comingSoon:true },
+];
+
 // ─── CONVERGENCE PORTAL DATA (Pipelines / Portfolio / TouchPoints / Weave) ───
 const CX_DEALERS = [
   'Metro Automotive Group',
@@ -3421,9 +3450,10 @@ const CX_CUSTOMERS = [
 ];
 
 // ─── PIPELINES SCREEN ────────────────────────────────────────────────────────
-const PipelinesScreen = () => {
+const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegration }) => {
   const [appointments, setAppointments] = useState(CX_APPOINTMENTS_INIT);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [tab, setTab] = useState('files'); // 'files' | 'integrations'
   const fileRef = useRef(null);
 
   const onFileChange = (e) => {
@@ -3432,45 +3462,175 @@ const PipelinesScreen = () => {
   };
   const deleteApt = (id) => setAppointments(prev => prev.filter(a => a.id !== id));
 
+  const isEnabled = (id) => enabledIntegrations.includes(id);
+  const handleIntegrationClick = (intg) => {
+    if (intg.comingSoon) return;
+    if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id);
+    // Navigate to Data Sources with this integration's table selected
+    if (intg.dbDef) navigate && navigate('datasources', { dbId: intg.dbDef.id });
+  };
+
   return (
     <div className="screen" style={{display:'flex',flexDirection:'column',height:'100%'}}>
       <div className="topbar"><div className="topbar-title" style={{marginLeft:48}}>Pipelines</div></div>
-      <div className="cx-screen">
-        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:4}}>
-          <div className="cx-h1" style={{marginBottom:0}}>Pipelines</div>
-          <span className="cx-chip success">{appointments.length} {appointments.length === 1 ? 'File' : 'Files'}</span>
-        </div>
-        <div className="cx-sub">Securely upload campaign lists</div>
 
-        <div className="cx-upload-row">
-          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" style={{display:'none'}} onChange={onFileChange}/>
-          <button className="cx-btn-primary" onClick={() => fileRef.current && fileRef.current.click()}>
-            <Icon name="upload" size={14}/> Upload File
+      {/* Tab strip — Files vs Integrations */}
+      <div style={{
+        display:'flex',
+        padding:'0 28px',
+        background:'var(--card-bg)',
+        borderBottom:'1px solid var(--border)',
+        gap: 4,
+        flexShrink:0,
+      }}>
+        {[
+          {id:'files',        label:'Files',        count: appointments.length},
+          {id:'integrations', label:'Integrations', count: enabledIntegrations.length || null},
+        ].map(t => (
+          <button key={t.id}
+            onClick={() => setTab(t.id)}
+            className="btn"
+            style={{
+              background:'transparent', border:'none',
+              borderBottom: tab===t.id ? '2px solid var(--accent)' : '2px solid transparent',
+              borderRadius: 0, padding:'12px 14px',
+              color: tab===t.id ? 'var(--accent)' : 'var(--text-secondary)',
+              fontWeight: tab===t.id ? 600 : 500, fontSize:'13px', gap:6,
+            }}>
+            {t.label}
+            {t.count != null && <span className={`count-badge${tab===t.id?' accent':''}`}>{t.count}</span>}
           </button>
-          {uploadedFile && <span style={{fontSize:12,color:'var(--text-secondary)'}}>{uploadedFile}</span>}
-        </div>
-
-        <div className="cx-card">
-          {appointments.map((a) => (
-            <div key={a.id} className={`cx-list-item ${a.status === 'upcoming' ? 'upcoming' : 'completed'}`}>
-              <div className={`cx-list-icon ${a.status === 'upcoming' ? 'purple' : 'green'}`}>
-                <Icon name="calendarCheck" size={18}/>
-              </div>
-              <div className="cx-list-content">
-                <div className="cx-list-title">
-                  {a.type}
-                  <span className={`cx-chip ${a.status === 'upcoming' ? 'primary' : 'success'}`} style={{marginLeft:8}}>{a.status}</span>
-                </div>
-                <div className="cx-list-sub">{a.date} at {a.time} · {a.rep}</div>
-                <div className="cx-list-sub-faint">{a.notes}</div>
-              </div>
-              <button className="cx-del-btn" onClick={() => deleteApt(a.id)} title="Delete file">
-                <Icon name="trash" size={14}/>
-              </button>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
+
+      {tab === 'files' && (
+        <div className="cx-screen">
+          <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:4}}>
+            <div className="cx-h1" style={{marginBottom:0}}>Pipelines</div>
+            <span className="cx-chip success">{appointments.length} {appointments.length === 1 ? 'File' : 'Files'}</span>
+          </div>
+          <div className="cx-sub">Securely upload campaign lists</div>
+
+          <div className="cx-upload-row">
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" style={{display:'none'}} onChange={onFileChange}/>
+            <button className="cx-btn-primary" onClick={() => fileRef.current && fileRef.current.click()}>
+              <Icon name="upload" size={14}/> Upload File
+            </button>
+            {uploadedFile && <span style={{fontSize:12,color:'var(--text-secondary)'}}>{uploadedFile}</span>}
+          </div>
+
+          <div className="cx-card">
+            {appointments.map((a) => (
+              <div key={a.id} className={`cx-list-item ${a.status === 'upcoming' ? 'upcoming' : 'completed'}`}>
+                <div className={`cx-list-icon ${a.status === 'upcoming' ? 'purple' : 'green'}`}>
+                  <Icon name="calendarCheck" size={18}/>
+                </div>
+                <div className="cx-list-content">
+                  <div className="cx-list-title">
+                    {a.type}
+                    <span className={`cx-chip ${a.status === 'upcoming' ? 'primary' : 'success'}`} style={{marginLeft:8}}>{a.status}</span>
+                  </div>
+                  <div className="cx-list-sub">{a.date} at {a.time} · {a.rep}</div>
+                  <div className="cx-list-sub-faint">{a.notes}</div>
+                </div>
+                <button className="cx-del-btn" onClick={() => deleteApt(a.id)} title="Delete file">
+                  <Icon name="trash" size={14}/>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'integrations' && (
+        <div className="cx-screen">
+          <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:4}}>
+            <div className="cx-h1" style={{marginBottom:0}}>Integrations</div>
+            <span className="cx-chip success">{enabledIntegrations.length} Connected</span>
+          </div>
+          <div className="cx-sub">Connect external systems to pipe data straight into the Convergence Portal</div>
+
+          <div style={{
+            display:'grid',
+            gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))',
+            gap:16, marginTop:18,
+          }}>
+            {INTEGRATIONS_CATALOG.map(intg => {
+              const enabled = isEnabled(intg.id);
+              const disabled = intg.comingSoon;
+              return (
+                <div key={intg.id}
+                  onClick={() => handleIntegrationClick(intg)}
+                  style={{
+                    background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:'var(--radius-md)',
+                    padding:0, overflow:'hidden', cursor: disabled ? 'default' : 'pointer',
+                    transition:'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
+                    display:'flex', flexDirection:'column', position:'relative',
+                    opacity: disabled ? 0.62 : 1,
+                  }}
+                  onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 6px 24px rgba(15,15,25,0.08)'; e.currentTarget.style.borderColor=intg.color+'55'; }}}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.borderColor='var(--border)'; }}
+                >
+                  {/* Icon banner */}
+                  <div style={{
+                    height:104,
+                    background:`linear-gradient(135deg, ${intg.color}22 0%, ${intg.color}08 100%)`,
+                    borderBottom:`1px solid ${intg.color}25`,
+                    display:'flex', alignItems:'center', justifyContent:'flex-start',
+                    padding:'0 20px',
+                    position:'relative',
+                  }}>
+                    <div style={{
+                      width:56, height:56, borderRadius:14,
+                      background:'#fff',
+                      border:`1px solid ${intg.color}30`,
+                      boxShadow:`0 4px 12px ${intg.color}1f`,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:30, lineHeight:1,
+                    }}>{intg.icon}</div>
+                    {enabled && (
+                      <span className="cx-chip success" style={{position:'absolute', top:12, right:12}}>
+                        <span style={{display:'inline-block',width:6,height:6,borderRadius:'50%',background:'#3db832'}}/>
+                        Connected
+                      </span>
+                    )}
+                    {disabled && (
+                      <span className="cx-chip default" style={{position:'absolute', top:12, right:12}}>
+                        Coming soon
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Meta */}
+                  <div style={{padding:'14px 18px 16px', display:'flex', flexDirection:'column', gap:6, flex:1}}>
+                    <div style={{fontFamily:'var(--font-display)', fontSize:'15px', fontWeight:600, color:'var(--text-primary)'}}>{intg.name}</div>
+                    <div style={{fontSize:'12.5px', color:'var(--text-secondary)', lineHeight:1.45, flex:1}}>{intg.desc}</div>
+
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10}}>
+                      <span style={{fontSize:'11px',color:'var(--text-tertiary)',fontFamily:'monospace'}}>
+                        {enabled ? 'Active' : disabled ? '—' : 'One-click connect'}
+                      </span>
+                      {!disabled && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleIntegrationClick(intg); }}
+                          className={enabled ? '' : 'cx-btn-primary'}
+                          style={enabled ? {
+                            background:'transparent', color:intg.color, border:`1px solid ${intg.color}55`,
+                            borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:600, cursor:'pointer',
+                            display:'inline-flex', alignItems:'center', gap:4,
+                          } : { padding:'6px 12px', fontSize:12 }}
+                        >
+                          {enabled ? <>View data <Icon name="chevronRight" size={11}/></> : <>Connect</>}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -4843,27 +5003,16 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const showDataPoints= report.showDataPoints || false;
   const xAxis         = report.xAxis        || '';
   const tableColumns  = report.tableColumns || [];
-  const yScale        = report.yScale       || 'linear';
-  const xAxisLabel    = report.xAxisLabel   || '';
-  const yAxisLabel    = report.yAxisLabel   || '';
-  const showXAxisLabel= report.showXAxisLabel || false;
-  const showYAxisLabel= report.showYAxisLabel || false;
   const db            = DATABASES.find(d => d.id === report.db);
   const currentTable  = db?.tables?.find(t => t.name === report.table) || db?.tables?.[0];
 
   const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
   const getSeriesColor = (i) => seriesColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
   // Per-series sizing — mirrors the Report Builder mapping
-  const MRC_BAR_SIZE    = { sm: 18, md: 34, lg: 56 };
-  const MRC_STROKE_SIZE = { sm: 1.5, md: 3, lg: 6 };
+  const MRC_BAR_SIZE    = { sm: 10, md: 18, lg: 30 };
+  const MRC_STROKE_SIZE = { sm: 1.5, md: 2.5, lg: 4 };
   const getBarSize    = (i) => MRC_BAR_SIZE[seriesSizes[i] || 'md'] || MRC_BAR_SIZE.md;
   const getStrokeSize = (i) => MRC_STROKE_SIZE[seriesSizes[i] || 'md'] || MRC_STROKE_SIZE.md;
-  // Y-axis scale props mirroring the Report Builder
-  const mrcScaleProps = yScale === 'log'
-    ? { scale: 'log', domain: ['auto','auto'], allowDataOverflow: true }
-    : yScale === 'pow'
-      ? { scale: 'sqrt', domain: [0,'auto'] }
-      : { scale: 'linear', domain: [0,'auto'] };
 
   const formatYValue = (v) => {
     if (yAxisFormat === 'currency') return `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`;
@@ -4942,16 +5091,6 @@ const MiniReportChart = ({ report, chartStyle }) => {
     const col = currentTable.cols?.find(c => c.name === xAxis);
     return !col || col.type === 'date';
   })();
-
-  // Axis label props mirroring the Report Builder (only when toggled on)
-  const mrcXLabelText = xAxisLabel || xAxis || (xIsDate ? xDateGroup : 'Category');
-  const mrcYLabelText = yAxisLabel || (yMetrics[0] ? getMetricLabel(yMetrics[0], 0) : 'Value');
-  const mrcXLabelProp = showXAxisLabel
-    ? { value: mrcXLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600 } }
-    : undefined;
-  const mrcYLabelProp = showYAxisLabel
-    ? { value: mrcYLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } }
-    : undefined;
 
   // Build the base "per X-tick" rows, then layer one s0..sN-1 key per metric
   const getBarData = () => {
@@ -5078,8 +5217,8 @@ const MiniReportChart = ({ report, chartStyle }) => {
             ))}
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={mrcXLabelProp}/>
-          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={mrcYLabelProp} {...mrcScaleProps}/>
+          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name) => [formatYValue(v), name]}/>
           {effectiveMetrics.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m,i) => (
@@ -5103,8 +5242,8 @@ const MiniReportChart = ({ report, chartStyle }) => {
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={barData} layout="vertical" margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
-          <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={showYAxisLabel ? { value: mrcYLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600 } } : undefined} {...mrcScaleProps}/>
-          <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80} label={showXAxisLabel ? { value: mrcXLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } } : undefined}/>
+          <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+          <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
           {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m, i) => (
@@ -5127,10 +5266,10 @@ const MiniReportChart = ({ report, chartStyle }) => {
     });
     return (
       <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={comboData} margin={{top:showDataPoints?20:8,right:8,left:showYAxisLabel?6:-10,bottom:showXAxisLabel?22:0}}>
+        <ComposedChart data={comboData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={mrcXLabelProp}/>
-          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={mrcYLabelProp} {...mrcScaleProps}/>
+          <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+          <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name) => [formatYValue(v), name]}/>
           <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
           {yMetrics.map((m, i) => {
@@ -5159,10 +5298,10 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum', comboType:'bar'}];
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:showYAxisLabel?6:-10,bottom:showXAxisLabel?22:0}}>
+      <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-        <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={mrcXLabelProp}/>
-        <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={mrcYLabelProp} {...mrcScaleProps}/>
+        <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+        <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
         <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
         {effectiveMetrics.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
         {effectiveMetrics.map((m, i) => (
@@ -6815,9 +6954,14 @@ const BuilderScreen = ({ navigate, tweaks }) => {
 };
 
 // ─── SCREEN: DATA SOURCES ─────────────────────────────────────────────────────
-const DataSourcesScreen = ({ navigate }) => {
-  const [activeDB, setActiveDB] = useState('calendar_events');
-  const currentDB = DATABASES.find(d => d.id === activeDB);
+const DataSourcesScreen = ({ navigate, extraDataSources = [], initialDB }) => {
+  // Merge built-in DATABASES with any user-enabled integration data sources
+  const allDBs = useMemo(() => [...DATABASES, ...extraDataSources], [extraDataSources]);
+  const [activeDB, setActiveDB] = useState(initialDB || allDBs[0]?.id || 'calendar_events');
+  useEffect(() => {
+    if (initialDB && allDBs.some(d => d.id === initialDB)) setActiveDB(initialDB);
+  }, [initialDB, allDBs]);
+  const currentDB = allDBs.find(d => d.id === activeDB) || allDBs[0];
 
   // Determine type badge color
   const typeStyle = (type) => {
@@ -6840,7 +6984,7 @@ const DataSourcesScreen = ({ navigate }) => {
             Data Sources
           </div>
           <div style={{overflowY:'auto',flex:1}}>
-            {DATABASES.map(db => (
+            {allDBs.map(db => (
               <div
                 key={db.id}
                 onClick={() => setActiveDB(db.id)}
@@ -7011,13 +7155,6 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
   const [yAxisFormat, setYAxisFormat] = useState(editReport?.yAxisFormat || 'number');
   const [legendPos, setLegendPos] = useState(editReport?.legendPos || 'bottom');
   const [showDataPoints, setShowDataPoints] = useState(editReport?.showDataPoints || false);
-  // Y-axis scale type: 'linear' | 'pow' (power / square-root) | 'log'
-  const [yScale, setYScale] = useState(editReport?.yScale || 'linear');
-  // Axis labels — custom text + on/off visibility
-  const [xAxisLabel, setXAxisLabel] = useState(editReport?.xAxisLabel ?? '');
-  const [yAxisLabel, setYAxisLabel] = useState(editReport?.yAxisLabel ?? '');
-  const [showXAxisLabel, setShowXAxisLabel] = useState(editReport?.showXAxisLabel ?? false);
-  const [showYAxisLabel, setShowYAxisLabel] = useState(editReport?.showYAxisLabel ?? false);
 
   // Helper: get color for a series index, falling back through defaults
   const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
@@ -7029,15 +7166,6 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     return next;
   });
 
-  // Recharts YAxis scale prop + domain. 'pow' uses a sqrt-style power scale
-  // which (like Metabase) compresses large outliers so smaller series stay
-  // visible; 'log' uses a log scale (needs a positive, non-zero domain).
-  const getYAxisScaleProps = () => {
-    if (yScale === 'log') return { scale: 'log', domain: ['auto', 'auto'], allowDataOverflow: true };
-    if (yScale === 'pow') return { scale: 'sqrt', domain: [0, 'auto'] };
-    return { scale: 'linear', domain: [0, 'auto'] };
-  };
-
   // Per-series sizing — 'md' is the default. Maps to a bar width (px) and a
   // line/area stroke width (px) used by the chart renderers.
   const getSeriesSize = (i) => seriesSizes[i] || 'md';
@@ -7047,7 +7175,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     next[i] = size;
     return next;
   });
-  const BAR_SIZE_PX    = { sm: 24, md: 44, lg: 72 };
+  const BAR_SIZE_PX    = { sm: 12, md: 22, lg: 38 };
   const STROKE_SIZE_PX = { sm: 1.5, md: 3, lg: 6 };
   const getBarSize    = (i) => BAR_SIZE_PX[getSeriesSize(i)] || BAR_SIZE_PX.md;
   const getStrokeSize = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
@@ -7293,31 +7421,16 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
 
   const renderPreview = () => {
     const axisStyle = {background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'};
-    // Axis label props — Recharts <Label> objects, only when toggled on.
-    const xLabelText = xAxisLabel || xAxis || (xIsDate ? xDateGroup : 'Category');
-    const yLabelText = yAxisLabel || (yMetrics[0] ? getMetricLabel(yMetrics[0], 0) : 'Value');
-    const xAxisLabelProp = showXAxisLabel
-      ? { value: xLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600 } }
-      : undefined;
-    const yAxisLabelProp = showYAxisLabel
-      ? { value: yLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } }
-      : undefined;
-    const labelMargin = {
-      bottom: showXAxisLabel ? 22 : 0,
-      left:   showYAxisLabel ? 16 : 0,
-    };
-    const yScaleProps = getYAxisScaleProps();
-    const axisSig = `${yScale}|${showXAxisLabel}|${showYAxisLabel}|${xLabelText}|${yLabelText}`;
     if (chartType === 'bar') {
       const barData = getBarData();
       const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:labelMargin.left,bottom:labelMargin.bottom}}>
+          <BarChart key={metricSig} data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
+            <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -7332,20 +7445,13 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     if (chartType === 'row') {
       const barData = getBarData();
       const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
-      // Row chart is horizontal: value runs along X, categories along Y.
-      const rowXLabelProp = showYAxisLabel
-        ? { value: yLabelText, position: 'insideBottom', offset: -2, style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600 } }
-        : undefined;
-      const rowYLabelProp = showXAxisLabel
-        ? { value: xLabelText, angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: 'var(--text-secondary)', fontWeight: 600, textAnchor: 'middle' } }
-        : undefined;
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:showXAxisLabel?16:8,bottom:showYAxisLabel?22:0}}>
+          <BarChart key={metricSig} data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
-            <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={rowXLabelProp} {...yScaleProps}/>
-            <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80} label={rowYLabelProp}/>
+            <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
+            <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -7367,13 +7473,13 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
         });
         return row;
       });
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:showYAxisLabel?6:-10,bottom:labelMargin.bottom}}>
+          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
+            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -7395,10 +7501,10 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
         });
         return row;
       });
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|') + '|' + axisSig;
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:showYAxisLabel?6:-10,bottom:labelMargin.bottom}}>
+          <AreaChart key={metricSig} data={tsData} margin={{top:8,right:16,left:-10,bottom:0}}>
             <defs>
               {effectiveMetrics.map((_, i) => (
                 <linearGradient key={i} id={`rbAreaGrad${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -7408,8 +7514,8 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               ))}
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
+            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
@@ -7432,13 +7538,13 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       });
       // Signature of all metrics — when ANY metric's field/agg/type changes,
       // this changes and forces Recharts to fully rebuild (no stale series cache).
-      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}:${m.comboType}`).join('|') + '|' + axisSig;
+      const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}:${m.comboType}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart key={metricSig} data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:showYAxisLabel?6:-10,bottom:labelMargin.bottom}}>
+          <ComposedChart key={metricSig} data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} label={xAxisLabelProp}/>
-            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue} label={yAxisLabelProp} {...yScaleProps}/>
+            <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>
             {yMetrics.map((m, i) => {
@@ -7682,11 +7788,6 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               yAxisFormat,
               legendPos,
               showDataPoints,
-              yScale,
-              xAxisLabel,
-              yAxisLabel,
-              showXAxisLabel,
-              showYAxisLabel,
               savedAt: new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}),
             });
             navigate('library');
@@ -8712,7 +8813,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                 const isActive = curSize === opt.id;
                                 // visual preview bar/line for the option
                                 const previewThickness = sizeKind === 'bar'
-                                  ? {sm:9, md:16, lg:26}[opt.id]
+                                  ? {sm:6, md:11, lg:18}[opt.id]
                                   : {sm:2, md:4, lg:7}[opt.id];
                                 return (
                                   <button key={opt.id} onClick={()=>setSeriesSize(selectedSeriesIdx, opt.id)}
@@ -8768,99 +8869,6 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                   ))}
                 </div>
               </div>
-
-              {/* ── Y-Axis Scale (linear / power / log) ── */}
-              {['bar','row','line','area','combo'].includes(chartType) && (
-                <div className="form-group">
-                  <label className="form-label">Y-Axis Scale</label>
-                  <div style={{fontSize:'11px',color:'var(--text-tertiary)',marginBottom:6,lineHeight:1.4}}>
-                    Use Power or Log when one metric is far larger than another so smaller series stay visible.
-                  </div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
-                    {[
-                      {id:'linear',label:'Linear',desc:'Even spacing'},
-                      {id:'pow',   label:'Power', desc:'Square-root'},
-                      {id:'log',   label:'Log',   desc:'Logarithmic'},
-                    ].map(opt => {
-                      const active = yScale === opt.id;
-                      return (
-                        <button key={opt.id} onClick={()=>setYScale(opt.id)}
-                          style={{
-                            padding:'7px 8px',borderRadius:'var(--radius-sm)',cursor:'pointer',textAlign:'center',
-                            border:`1.5px solid ${active?'var(--accent)':'var(--border)'}`,
-                            background: active?'var(--accent-light)':'var(--input-bg)',
-                            transition:'all 0.15s',
-                          }}>
-                          <div style={{fontSize:'12px',fontWeight:600,color:active?'var(--accent)':'var(--text-primary)'}}>{opt.label}</div>
-                          <div style={{fontSize:'9.5px',color:'var(--text-tertiary)',marginTop:2}}>{opt.desc}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {yScale === 'log' && (
-                    <div style={{fontSize:'10.5px',color:'var(--text-tertiary)',marginTop:6,fontStyle:'italic'}}>
-                      Log scale requires positive values; zero or negative points may not render.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── Axis Labels (text + show/hide) ── */}
-              {['bar','row','line','area','combo'].includes(chartType) && (
-                <div className="form-group">
-                  <label className="form-label">Axis Labels</label>
-
-                  {/* X-axis label row */}
-                  <div style={{marginBottom:10}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
-                      <span style={{fontSize:'12px',fontWeight:500,color:'var(--text-secondary)'}}>X-Axis Label</span>
-                      <button onClick={()=>setShowXAxisLabel(v=>!v)}
-                        title={showXAxisLabel ? 'Label is shown — click to hide' : 'Label is hidden — click to show'}
-                        style={{
-                          position:'relative',width:38,height:21,borderRadius:11,border:'none',cursor:'pointer',flexShrink:0,
-                          background: showXAxisLabel ? 'var(--accent)' : 'var(--border)',
-                          transition:'background 0.15s',
-                        }}>
-                        <span style={{
-                          position:'absolute',top:2,left: showXAxisLabel ? 19 : 2,width:17,height:17,borderRadius:'50%',
-                          background:'#fff',transition:'left 0.15s',boxShadow:'0 1px 2px rgba(0,0,0,0.25)',
-                        }}/>
-                      </button>
-                    </div>
-                    <input className="form-input"
-                      style={{opacity: showXAxisLabel ? 1 : 0.5}}
-                      disabled={!showXAxisLabel}
-                      value={xAxisLabel}
-                      onChange={e=>setXAxisLabel(e.target.value)}
-                      placeholder={xAxis || (xIsDate ? xDateGroup : 'Category')}/>
-                  </div>
-
-                  {/* Y-axis label row */}
-                  <div>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
-                      <span style={{fontSize:'12px',fontWeight:500,color:'var(--text-secondary)'}}>Y-Axis Label</span>
-                      <button onClick={()=>setShowYAxisLabel(v=>!v)}
-                        title={showYAxisLabel ? 'Label is shown — click to hide' : 'Label is hidden — click to show'}
-                        style={{
-                          position:'relative',width:38,height:21,borderRadius:11,border:'none',cursor:'pointer',flexShrink:0,
-                          background: showYAxisLabel ? 'var(--accent)' : 'var(--border)',
-                          transition:'background 0.15s',
-                        }}>
-                        <span style={{
-                          position:'absolute',top:2,left: showYAxisLabel ? 19 : 2,width:17,height:17,borderRadius:'50%',
-                          background:'#fff',transition:'left 0.15s',boxShadow:'0 1px 2px rgba(0,0,0,0.25)',
-                        }}/>
-                      </button>
-                    </div>
-                    <input className="form-input"
-                      style={{opacity: showYAxisLabel ? 1 : 0.5}}
-                      disabled={!showYAxisLabel}
-                      value={yAxisLabel}
-                      onChange={e=>setYAxisLabel(e.target.value)}
-                      placeholder={yMetrics[0] ? getMetricLabel(yMetrics[0], 0) : 'Value'}/>
-                  </div>
-                </div>
-              )}
 
               {/* ── Legend ── */}
               <div className="form-group">
@@ -9485,6 +9493,28 @@ const App = () => {
   const [userDashboards, setUserDashboards] = useState([]);
   const [editingReport, setEditingReport] = useState(null);
   const [dealer, setDealer] = useState(CX_DEALERS[0]);
+  // Integrations enabled from the Pipelines → Integrations tab. Each id maps to
+  // an entry in INTEGRATIONS_CATALOG that may carry a `dbDef` — those defs are
+  // merged into Data Sources alongside the built-in DATABASES.
+  const [enabledIntegrations, setEnabledIntegrations] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cx_integrations') || '[]'); }
+    catch { return []; }
+  });
+  // When navigating to Data Sources, optionally hint which db to focus on.
+  const [pendingDataSource, setPendingDataSource] = useState(null);
+  const extraDataSources = useMemo(() =>
+    INTEGRATIONS_CATALOG
+      .filter(i => enabledIntegrations.includes(i.id) && i.dbDef)
+      .map(i => i.dbDef),
+  [enabledIntegrations]);
+  const handleEnableIntegration = useCallback((id) => {
+    setEnabledIntegrations(prev => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      try { localStorage.setItem('cx_integrations', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [styleOpen, setStyleOpen] = useState(false);
 
@@ -9538,7 +9568,10 @@ const App = () => {
     if (target === 'dashboard') { setActiveDashboard(data); setScreen('dashboard'); }
     else if (target === 'library') setScreen('library');
     else if (target === 'builder') setScreen('builder');
-    else if (target === 'datasources') setScreen('datasources');
+    else if (target === 'datasources') {
+      if (data && data.dbId) setPendingDataSource(data.dbId);
+      setScreen('datasources');
+    }
     else if (target === 'questions') { setEditingReport(null); setScreen('questions'); }
     else setScreen(target);
   }, []);
@@ -9576,7 +9609,7 @@ const App = () => {
   const renderScreen = () => {
     switch (screen) {
       // ── Convergence top-level sections ──
-      case 'pipelines':   return <PipelinesScreen/>;
+      case 'pipelines':   return <PipelinesScreen navigate={navigate} enabledIntegrations={enabledIntegrations} onEnableIntegration={handleEnableIntegration}/>;
       case 'portfolio':   return <PortfolioScreen/>;
       case 'touchpoints': return <TouchPointsScreen/>;
       case 'weave':       return <WeaveScreen/>;
@@ -9585,7 +9618,7 @@ const App = () => {
       case 'dashboard': return <DashboardScreen navigate={navigate} dashboard={activeDashboard} tweaks={tweaks} savedReports={savedReports} widgetLayout={activeWidgetLayout} onWidgetLayoutChange={handleWidgetLayoutChange}/>;
       case 'builder': return <BuilderScreen navigate={navigate} tweaks={tweaks}/>;
       case 'questions': return <ReportBuilderScreen navigate={navigate} tweaks={tweaks} onSaveReport={handleSaveReport} editReport={editingReport}/>;
-      case 'datasources': return <DataSourcesScreen navigate={navigate}/>;
+      case 'datasources': return <DataSourcesScreen navigate={navigate} extraDataSources={extraDataSources} initialDB={pendingDataSource}/>;
       default: return (
         <div className="screen" style={{display:'flex',flexDirection:'column',height:'100%'}}>
           <div className="topbar"><div className="topbar-title">{screen.charAt(0).toUpperCase()+screen.slice(1)}</div></div>
