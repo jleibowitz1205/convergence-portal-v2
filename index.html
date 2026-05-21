@@ -28,7 +28,7 @@
     --brand-electric: #5E10BC;
     --brand-electric-deep: #4a0d96;
     --brand-neon: #80E55C;
-    --brand-citrine: #F7E74B;
+    --brand-citrine: #F7E749;
     --brand-jet: #000000;
     --brand-lavender: #D4C9F4;
     --brand-mint: #ADF792;
@@ -61,7 +61,7 @@
     --danger: #ef4444;
     --chart-1: #5E10BC;
     --chart-2: #80E55C;
-    --chart-3: #F7E74B;
+    --chart-3: #F7E749;
     --chart-4: #7E54D9;
     --chart-5: #ADF792;
 
@@ -89,7 +89,7 @@
     --accent-dark: #2a9020;
     --chart-1: #80E55C;
     --chart-2: #5E10BC;
-    --chart-3: #F7E74B;
+    --chart-3: #F7E749;
     --chart-4: #7E54D9;
     --chart-5: #ADF792;
   }
@@ -118,7 +118,7 @@
     --badge-text: #8b80a8;
     --chart-1: #7E54D9;
     --chart-2: #80E55C;
-    --chart-3: #F7E74B;
+    --chart-3: #F7E749;
     --chart-4: #c49dff;
     --chart-5: #ADF792;
   }
@@ -3053,6 +3053,7 @@ const Icon = ({ name, size = 16, style = {} }) => {
     upload: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><path d="M8 11V3M5 6l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
     cellphone: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><rect x="5" y="1.5" width="6" height="13" rx="1.2" stroke="currentColor" strokeWidth="1.3"/><circle cx="8" cy="12" r="0.6" fill="currentColor"/></svg>,
     mail: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><rect x="1.5" y="3" width="13" height="10" rx="1.4" stroke="currentColor" strokeWidth="1.3"/><path d="M2 4.5l6 4.5 6-4.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>,
+    check: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   };
   return icons[name] || <span style={{width: size, height: size, display:'inline-block'}}/>;
 };
@@ -5008,25 +5009,11 @@ const MiniReportChart = ({ report, chartStyle }) => {
 
   const DEFAULT_COLORS = ['#5E10BC','#22c55e','#f59e0b','#ec4899','#14b8a6','#8b5cf6','#ef4444','#0ea5e9'];
   const getSeriesColor = (i) => seriesColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
-  // Per-series sizing — mirrors the Report Builder. Bars fill their category
-  // band; Small/Medium/Large controls the gap between groups (less gap = wider
-  // bars that use more of the widget's real estate).
-  const MRC_BAR_CATEGORY_GAP = { sm: '45%', md: '22%', lg: '8%' };
-  const MRC_BAR_MAX_SIZE     = { sm: 40,    md: 70,    lg: 120  };
-  const MRC_STROKE_SIZE      = { sm: 1.5,   md: 3,     lg: 6    };
-  const mrcSizeRank = { sm: 0, md: 1, lg: 2 };
-  const mrcDominantSize = () => {
-    if (!yMetrics.length) return 'md';
-    let best = 'md', bestRank = -1;
-    yMetrics.forEach((_, i) => {
-      const s = seriesSizes[i] || 'md';
-      if (mrcSizeRank[s] > bestRank) { bestRank = mrcSizeRank[s]; best = s; }
-    });
-    return best;
-  };
-  const getBarCategoryGap = () => MRC_BAR_CATEGORY_GAP[mrcDominantSize()] || MRC_BAR_CATEGORY_GAP.md;
-  const getMaxBarSize    = (i) => MRC_BAR_MAX_SIZE[seriesSizes[i] || 'md'] || MRC_BAR_MAX_SIZE.md;
-  const getStrokeSize    = (i) => MRC_STROKE_SIZE[seriesSizes[i] || 'md'] || MRC_STROKE_SIZE.md;
+  // Per-series sizing — mirrors the Report Builder mapping
+  const MRC_BAR_SIZE    = { sm: 10, md: 18, lg: 30 };
+  const MRC_STROKE_SIZE = { sm: 1.5, md: 2.5, lg: 4 };
+  const getBarSize    = (i) => MRC_BAR_SIZE[seriesSizes[i] || 'md'] || MRC_BAR_SIZE.md;
+  const getStrokeSize = (i) => MRC_STROKE_SIZE[seriesSizes[i] || 'md'] || MRC_STROKE_SIZE.md;
 
   const formatYValue = (v) => {
     if (yAxisFormat === 'currency') return `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`;
@@ -5254,14 +5241,14 @@ const MiniReportChart = ({ report, chartStyle }) => {
     const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Value', agg:'sum', comboType:'bar'}];
     return (
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={barData} layout="vertical" barCategoryGap={getBarCategoryGap()} margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
+        <BarChart data={barData} layout="vertical" margin={{top:8,right:showDataPoints?52:16,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
           <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
           <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
           <Tooltip contentStyle={{background:'var(--card-bg)',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'12px'}} formatter={(v,name)=>[formatYValue(v), name]}/>
           {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
           {effectiveMetrics.map((m, i) => (
-            <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} maxBarSize={getMaxBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
+            <Bar key={i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)}>
               {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
             </Bar>
           ))}
@@ -5280,7 +5267,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
     });
     return (
       <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={comboData} barCategoryGap={getBarCategoryGap()} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
+        <ComposedChart data={comboData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
           <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
           <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
@@ -5292,7 +5279,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
             const name = getMetricLabel(m, i);
             if (m.comboType === 'bar') {
               return (
-                <Bar key={key} dataKey={key} fill={color} maxBarSize={getMaxBarSize(i)} radius={[3,3,0,0]} name={name}>
+                <Bar key={key} dataKey={key} fill={color} barSize={getBarSize(i)} radius={[3,3,0,0]} name={name}>
                   {showDataPoints && <LabelList dataKey={key} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
                 </Bar>
               );
@@ -5312,7 +5299,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
   const effectiveMetrics = yMetrics.length > 0 ? yMetrics : [{field:'Series 1', agg:'sum', comboType:'bar'}];
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={barData} barCategoryGap={getBarCategoryGap()} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
+      <BarChart data={barData} margin={{top:showDataPoints?20:8,right:8,left:-10,bottom:0}}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
         <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
         <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
@@ -5323,7 +5310,7 @@ const MiniReportChart = ({ report, chartStyle }) => {
             fill={chartStyle==='outlined'?'transparent':getSeriesColor(i)}
             stroke={getSeriesColor(i)}
             strokeWidth={chartStyle==='outlined'?1.5:0}
-            maxBarSize={getMaxBarSize(i)}
+            barSize={getBarSize(i)}
             radius={[4,4,0,0]}
             name={getMetricLabel(m, i)}>
             {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
@@ -7189,32 +7176,10 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
     next[i] = size;
     return next;
   });
-  // Bar sizing strategy: instead of a fixed pixel width (which leaves big
-  // empty gaps and makes bars look tiny regardless of chart width), bars now
-  // FILL their category band. Small/Medium/Large maps to the gap BETWEEN
-  // category groups — a smaller gap means fatter bars that use more of the
-  // chart's real estate. maxBarSize is a generous cap so single wide bars
-  // don't become absurdly thick.
-  //   - barCategoryGap: space between category groups (less gap = wider bars)
-  //   - maxBarSize:     ceiling so a lone bar still looks reasonable
-  const BAR_CATEGORY_GAP = { sm: '45%', md: '22%', lg: '8%' };
-  const BAR_MAX_SIZE     = { sm: 48,    md: 84,    lg: 140  };
-  const STROKE_SIZE_PX   = { sm: 1.5,   md: 3,     lg: 6    };
-  // Bars on a chart share one category gap; use the largest selected series'
-  // size so the overall layout opens up if ANY series is set to Large.
-  const sizeRank = { sm: 0, md: 1, lg: 2 };
-  const dominantBarSize = () => {
-    if (!yMetrics.length) return 'md';
-    let best = 'md', bestRank = -1;
-    yMetrics.forEach((_, i) => {
-      const s = getSeriesSize(i);
-      if (sizeRank[s] > bestRank) { bestRank = sizeRank[s]; best = s; }
-    });
-    return best;
-  };
-  const getBarCategoryGap = () => BAR_CATEGORY_GAP[dominantBarSize()] || BAR_CATEGORY_GAP.md;
-  const getMaxBarSize    = (i) => BAR_MAX_SIZE[getSeriesSize(i)] || BAR_MAX_SIZE.md;
-  const getStrokeSize    = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
+  const BAR_SIZE_PX    = { sm: 12, md: 22, lg: 38 };
+  const STROKE_SIZE_PX = { sm: 1.5, md: 3, lg: 6 };
+  const getBarSize    = (i) => BAR_SIZE_PX[getSeriesSize(i)] || BAR_SIZE_PX.md;
+  const getStrokeSize = (i) => STROKE_SIZE_PX[getSeriesSize(i)] || STROKE_SIZE_PX.md;
 
   // Resolve how series `i` is actually drawn on the current chart:
   // returns 'bar' | 'line' | 'area' | null. For combo charts this respects
@@ -7463,14 +7428,14 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} barCategoryGap={getBarCategoryGap()} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
+          <BarChart key={metricSig} data={barData} margin={{top: showDataPoints ? 20 : 8,right:16,left:0,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} maxBarSize={getMaxBarSize(i)} radius={[4,4,0,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
+              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[4,4,0,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
                 {showDataPoints && <LabelList dataKey={`s${i}`} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
             ))}
@@ -7484,14 +7449,14 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart key={metricSig} data={barData} layout="vertical" barCategoryGap={getBarCategoryGap()} margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
+          <BarChart key={metricSig} data={barData} layout="vertical" margin={{top:8,right: showDataPoints ? 52 : 16,left:8,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false}/>
             <XAxis type="number" tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
             <YAxis type="category" dataKey="xLabel" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} width={80}/>
             <Tooltip contentStyle={axisStyle} formatter={(v,name) => [formatYValue(v), name]}/>
             {effectiveMetrics.length > 1 && <Legend iconSize={8} wrapperStyle={{fontSize:'11px'}}/>}
             {effectiveMetrics.map((m, i) => (
-              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} maxBarSize={getMaxBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
+              <Bar key={m.mid || i} dataKey={`s${i}`} fill={getSeriesColor(i)} barSize={getBarSize(i)} radius={[0,4,4,0]} name={getMetricLabel(m, i)} isAnimationActive={false}>
                 {showDataPoints && <LabelList dataKey={`s${i}`} position="right" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
               </Bar>
             ))}
@@ -7577,7 +7542,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
       const metricSig = yMetrics.map(m => `${m.mid}:${m.field}:${m.agg}:${m.comboType}`).join('|');
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart key={metricSig} data={comboData} barCategoryGap={getBarCategoryGap()} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
+          <ComposedChart key={metricSig} data={comboData} margin={{top: showDataPoints ? 20 : 8,right:16,left:-10,bottom:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
             <XAxis dataKey="label" tick={{fontSize:11,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false}/>
             <YAxis tick={{fontSize:10,fill:'var(--text-tertiary)'}} axisLine={false} tickLine={false} tickFormatter={formatYValue}/>
@@ -7592,7 +7557,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
               const reactKey = `${m.mid || i}-${m.comboType}-${m.agg}`;
               if (m.comboType === 'bar') {
                 return (
-                  <Bar key={reactKey} dataKey={key} fill={color} maxBarSize={getMaxBarSize(i)} radius={[3,3,0,0]} name={name} isAnimationActive={false}>
+                  <Bar key={reactKey} dataKey={key} fill={color} barSize={getBarSize(i)} radius={[3,3,0,0]} name={name} isAnimationActive={false}>
                     {showDataPoints && <LabelList dataKey={key} position="top" formatter={formatYValue} style={{fontSize:'10px',fill:'var(--text-secondary)',fontWeight:600}}/>}
                   </Bar>
                 );
@@ -8849,7 +8814,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                                 const isActive = curSize === opt.id;
                                 // visual preview bar/line for the option
                                 const previewThickness = sizeKind === 'bar'
-                                  ? {sm:10, md:18, lg:28}[opt.id]
+                                  ? {sm:6, md:11, lg:18}[opt.id]
                                   : {sm:2, md:4, lg:7}[opt.id];
                                 return (
                                   <button key={opt.id} onClick={()=>setSeriesSize(selectedSeriesIdx, opt.id)}
@@ -9362,6 +9327,1392 @@ const StylePanel = ({ open, onClose, tweaks, setTweak }) => {
   );
 };
 
+// ─── HOME SCREEN ──────────────────────────────────────────────────────────────
+// Landing dashboard. Snapshots across all the customer's connected data sources.
+//  • Pie chart   — Transactions broken out by Data Type (Sales / Service)
+//  • Bar chart   — Phone Calls broken out by Line Type (Sales / Service / Recall)
+//  • Calendar    — Calendar Events + Service Appointments, color-coded by type
+//                  (Follow Up = green · Appointment = purple · Service = yellow)
+//  • Right rail  — Conversions / Vehicles / Associated Contacts
+//                  (subset of the TouchPoints sidebar — re-used styling)
+//  • Date filter — Mirrors the TrafficGauge DateRangeDropdown contract.
+
+// Sample data — scoped to the Home screen.
+const HOME_TRANSACTIONS = (() => {
+  const rng = (s => () => (s = (s * 9301 + 49297) % 233280) / 233280)(7);
+  const rows = [];
+  for (let i=0; i<142; i++) rows.push({ dataType:'service', revenue: 180 + rng()*520 });
+  for (let i=0; i<58;  i++) rows.push({ dataType:'sales',   revenue: 22000 + rng()*26000 });
+  return rows;
+})();
+
+const HOME_PHONE_CALLS = (() => {
+  const out = [];
+  for (let i=0; i<74;  i++) out.push({ lineType:'Sales Line' });
+  for (let i=0; i<118; i++) out.push({ lineType:'Service Line' });
+  for (let i=0; i<27;  i++) out.push({ lineType:'Recall Line' });
+  return out;
+})();
+
+// Calendar items for May 2026 (TODAY = May 13, 2026).
+const HOME_CALENDAR_ITEMS = [
+  // Follow-Ups (green)
+  { kind:'calendar', date:'2026-05-02', name:'Kaurice Hunt',       eventType:'Customer Follow Up', vin:'5TDHZRBH7MS555773', year:'2021', make:'Toyota',    model:'Highlander' },
+  { kind:'calendar', date:'2026-05-04', name:'Audrey Ernst',       eventType:'Customer Follow Up', vin:'2T3G1RFV0PC361173', year:'2023', make:'Toyota',    model:'RAV4' },
+  { kind:'calendar', date:'2026-05-05', name:'Kristofer Gacono',   eventType:'AI Follow Up',       vin:'3CZRZ2H73RM782292', year:'2024', make:'Honda',     model:'HR-V' },
+  { kind:'calendar', date:'2026-05-08', name:'Sondra Sims',        eventType:'Customer Follow Up', vin:'WBA73AK05L7F98977', year:'2020', make:'BMW',       model:'228I' },
+  { kind:'calendar', date:'2026-05-12', name:'Christine Sorial',   eventType:'AI Follow Up',       vin:'5UX43DP09R9U82979', year:'2024', make:'BMW',       model:'X3' },
+  { kind:'calendar', date:'2026-05-15', name:'Sukhinder Dhaliwal', eventType:'Customer Follow Up', vin:'2T3P1RFV4SW558385', year:'2025', make:'Toyota',    model:'RAV4' },
+  { kind:'calendar', date:'2026-05-20', name:'Brittany Bakeman',   eventType:'AI Follow Up',       vin:'JTMRFREV4DD021186', year:'2013', make:'Toyota',    model:'RAV4' },
+  { kind:'calendar', date:'2026-05-22', name:'Elaine Sampson',     eventType:'Customer Follow Up', vin:'WBA63AV02RFR77860', year:'2024', make:'BMW',       model:'430I' },
+  { kind:'calendar', date:'2026-05-28', name:'Marcus Williams',    eventType:'Customer Follow Up', vin:'1FTFW1ET5EFC34521', year:'2014', make:'Ford',      model:'F-150' },
+  // Appointments (purple)
+  { kind:'calendar', date:'2026-05-06', name:'Law Kistler',        eventType:'Sales Appointment',  vin:'WBAJS1C02LWW78229', year:'2020', make:'BMW',       model:'540I' },
+  { kind:'calendar', date:'2026-05-11', name:'Dee Medina',         eventType:'Sales Appointment',  vin:'5UX23EM01P9R78373', year:'2023', make:'BMW',       model:'X7' },
+  { kind:'calendar', date:'2026-05-13', name:'James Mongold',      eventType:'Sales Appointment',  vin:'KL8CD6SA5KC713612', year:'2019', make:'Chevrolet', model:'Spark' },
+  { kind:'calendar', date:'2026-05-18', name:'Jason Forrest',      eventType:'Sales Appointment',  vin:'3FTTW8E98NRA03785', year:'2022', make:'Ford',      model:'Maverick' },
+  { kind:'calendar', date:'2026-05-26', name:'Ayla Ceyran',        eventType:'Sales Appointment',  vin:'2T36CRAV8TW017113', year:'2026', make:'Toyota',    model:'RAV4' },
+  // Service Appointments (yellow)
+  { kind:'service',  date:'2026-05-01', name:'Edgardo Manriquez',  vin:'5UXWX9C51G0D88479', year:'2016', make:'BMW',       model:'X3' },
+  { kind:'service',  date:'2026-05-04', name:'Christopher Perez',  vin:'1FTEW2KP9SKE35651', year:'2025', make:'Ford',      model:'F-150' },
+  { kind:'service',  date:'2026-05-07', name:'Tim Lewis',          vin:'5TDJKRFH0GS351109', year:'2016', make:'Toyota',    model:'Highlander' },
+  { kind:'service',  date:'2026-05-11', name:'Sarah Johnson',      vin:'1HGCM82633A004352', year:'2024', make:'Honda',     model:'Accord Sport' },
+  { kind:'service',  date:'2026-05-14', name:'Jennifer Liu',       vin:'1GNSKBKC8KR181847', year:'2019', make:'Chevrolet', model:'Tahoe' },
+  { kind:'service',  date:'2026-05-19', name:'David Park',         vin:'2HKRW2H58KH601234', year:'2019', make:'Honda',     model:'CR-V' },
+  { kind:'service',  date:'2026-05-21', name:'Amanda Torres',      vin:'1C6SRFHT5MN612345', year:'2021', make:'RAM',       model:'1500' },
+  { kind:'service',  date:'2026-05-27', name:'Robert Appel',       vin:'JTMRFREV4DD888921', year:'2022', make:'Lexus',     model:'RX 350' },
+];
+
+const HomeChartCard = ({ title, subtitle, headerRight, children, style }) => (
+  <div className="card" style={{
+    background:'var(--card-bg)', border:'1px solid var(--card-border)',
+    borderRadius:'var(--radius-lg)', boxShadow:'var(--card-shadow)',
+    padding:'16px 18px 14px', display:'flex', flexDirection:'column', ...style,
+  }}>
+    <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:14, marginBottom:10}}>
+      <div style={{minWidth:0}}>
+        <div style={{fontFamily:'var(--font-display)', fontSize:14, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.005em'}}>{title}</div>
+        <div style={{fontFamily:'var(--font-subheading)', fontSize:11, color:'var(--text-secondary)', marginTop:2}}>{subtitle}</div>
+      </div>
+      {headerRight && <div style={{flexShrink:0}}>{headerRight}</div>}
+    </div>
+    {children}
+  </div>
+);
+
+const HomeLegend = ({ items }) => (
+  <div style={{display:'flex', flexWrap:'wrap', gap:'6px 14px', marginTop:8, paddingTop:10, borderTop:'1px solid var(--card-border)'}}>
+    {items.map((it,i) => (
+      <span key={i} style={{display:'inline-flex', alignItems:'center', gap:6, fontFamily:'var(--font-subheading)', fontSize:11, fontWeight:600, color:'var(--text-secondary)'}}>
+        <span style={{width:9, height:9, borderRadius:3, background:it.color, flexShrink:0}}/>
+        <span>{it.name}</span>
+        <span style={{color:'var(--text-tertiary)', fontWeight:500}}>{it.value.toLocaleString()}</span>
+      </span>
+    ))}
+  </div>
+);
+
+const HomeEventModal = ({ item, onClose }) => {
+  const isService = item.kind === 'service';
+  const et = (item.eventType || '').toLowerCase();
+  let badgeColor, badgeBg, label;
+  if (isService)                       { badgeColor = '#5b4900'; badgeBg = '#F7E749'; label = 'Service Appointment'; }
+  else if (et.includes('follow up'))   { badgeColor = '#1f4d10'; badgeBg = '#80E55C'; label = 'Follow Up'; }
+  else                                 { badgeColor = '#ffffff'; badgeBg = '#7E54D9'; label = 'Appointment'; }
+
+  const fmt = new Date(item.date + 'T12:00:00').toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(13,10,20,0.45)', zIndex:1300, display:'flex', alignItems:'center', justifyContent:'center', padding:24, animation:'fadeIn 0.15s ease'}}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'var(--card-bg)', borderRadius:14, border:'1px solid var(--card-border)',
+        boxShadow:'0 18px 60px rgba(0,0,0,0.28)',
+        width:'100%', maxWidth:400, overflow:'hidden',
+      }}>
+        <div style={{padding:'18px 22px 16px', borderBottom:'1px solid var(--card-border)'}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12}}>
+            <div style={{minWidth:0, flex:1}}>
+              <span style={{display:'inline-block', padding:'4px 10px', borderRadius:999, background:badgeBg, color:badgeColor, fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10}}>{label}</span>
+              <div style={{fontFamily:'var(--font-display)', fontSize:20, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.01em', lineHeight:1.15}}>{item.name}</div>
+              <div style={{fontFamily:'var(--font-subheading)', fontSize:12, color:'var(--text-secondary)', marginTop:4}}>{fmt}{item.eventType ? ` · ${item.eventType}` : ''}</div>
+            </div>
+            <button onClick={onClose} className="tp-vehicle-remove-btn" style={{opacity:1, flexShrink:0}}><Icon name="close" size={11}/></button>
+          </div>
+        </div>
+        <div style={{padding:'14px 22px 20px', display:'grid', gridTemplateColumns:'auto 1fr', gap:'12px 22px', alignItems:'center'}}>
+          {[
+            ['VIN',   item.vin,   'monospace'],
+            ['Year',  item.year,  'var(--font-subheading)'],
+            ['Make',  item.make,  'var(--font-subheading)'],
+            ['Model', item.model, 'var(--font-subheading)'],
+          ].map(([k,v,ff]) => (
+            <React.Fragment key={k}>
+              <span style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'var(--text-tertiary)'}}>{k}</span>
+              <span style={{fontFamily:ff, fontSize:13, fontWeight:700, color:'var(--text-primary)'}}>{v}</span>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Convert a DateRangeDropdown filter into a {start,end} Date range, anchored to
+// the prototype's TODAY (May 13, 2026). Mirrors the same preset semantics the
+// dropdown uses internally.
+const HOME_TODAY = new Date(2026, 4, 13);
+function homeRangeFromFilter(filter) {
+  const today = new Date(HOME_TODAY);
+  const dayMs = 86400000;
+  switch (filter.datePreset) {
+    case 'today':     return { start: new Date(today), end: new Date(today) };
+    case 'yesterday': {
+      const d = new Date(today); d.setDate(today.getDate() - 1);
+      return { start: d, end: d };
+    }
+    case 'prev_week': {
+      const dow = today.getDay();
+      const end = new Date(today); end.setDate(today.getDate() - dow - 1);
+      const start = new Date(end); start.setDate(end.getDate() - 6);
+      return { start, end };
+    }
+    case 'prev_7':    { const s = new Date(today); s.setDate(today.getDate() - 6);  return { start: s, end: today }; }
+    case 'prev_30':   { const s = new Date(today); s.setDate(today.getDate() - 29); return { start: s, end: today }; }
+    case 'prev_month':{ const s = new Date(today.getFullYear(), today.getMonth()-1, 1); const e = new Date(today.getFullYear(), today.getMonth(), 0); return { start: s, end: e }; }
+    case 'prev_3m':   { const s = new Date(today); s.setMonth(today.getMonth() - 3); s.setDate(s.getDate() + 1); return { start: s, end: today }; }
+    case 'prev_12m':  { const s = new Date(today); s.setFullYear(today.getFullYear() - 1); s.setDate(s.getDate() + 1); return { start: s, end: today }; }
+    case 'fixed':     return { start: filter.fixedStart || new Date(2020,0,1), end: filter.fixedEnd || today };
+    case 'relative': {
+      const a = Math.max(1, parseInt(filter.relAmount) || 1);
+      const include = filter.includeToday !== false;
+      const end = include ? new Date(today) : new Date(today.getTime() - dayMs);
+      let start = new Date(end);
+      if (filter.relTab === 'previous') {
+        if      (filter.relUnit === 'days')     start.setDate(end.getDate() - (a-1));
+        else if (filter.relUnit === 'weeks')    start.setDate(end.getDate() - (a*7-1));
+        else if (filter.relUnit === 'months')   { start = new Date(end); start.setMonth(end.getMonth() - a); start.setDate(start.getDate() + 1); }
+        else if (filter.relUnit === 'quarters') { start = new Date(end); start.setMonth(end.getMonth() - a*3); start.setDate(start.getDate() + 1); }
+        else if (filter.relUnit === 'years')    { start = new Date(end); start.setFullYear(end.getFullYear() - a); start.setDate(start.getDate() + 1); }
+      } else if (filter.relTab === 'current') {
+        if      (filter.relUnit === 'weeks')    start.setDate(end.getDate() - end.getDay());
+        else if (filter.relUnit === 'months')   start = new Date(end.getFullYear(), end.getMonth(), 1);
+        else if (filter.relUnit === 'quarters') start = new Date(end.getFullYear(), Math.floor(end.getMonth()/3)*3, 1);
+        else if (filter.relUnit === 'years')    start = new Date(end.getFullYear(), 0, 1);
+      } else {
+        const ns = new Date(end.getTime() + dayMs);
+        let ne = new Date(ns);
+        if      (filter.relUnit === 'days')     ne.setDate(ns.getDate() + a - 1);
+        else if (filter.relUnit === 'weeks')    ne.setDate(ns.getDate() + a*7 - 1);
+        else if (filter.relUnit === 'months')   ne = new Date(ns.getFullYear(), ns.getMonth() + a, 0);
+        else if (filter.relUnit === 'quarters') ne = new Date(ns.getFullYear(), ns.getMonth() + a*3, 0);
+        else if (filter.relUnit === 'years')    ne = new Date(ns.getFullYear() + a - 1, 11, 31);
+        return { start: ns, end: ne };
+      }
+      return { start, end };
+    }
+    default: return { start: new Date(2020,0,1), end: today };
+  }
+}
+
+// Best-effort parse for the human-readable date strings used in CX_CUSTOMERS
+// timelines (e.g. "Apr 23, 2026"). Returns null if unparseable.
+const homeParseDate = (s) => {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+};
+
+// Conversion-type checkbox control used in the Home filter bar.
+const HomeConvCheckbox = ({ label, sublabel, color, checked, onChange }) => (
+  <button
+    onClick={onChange}
+    style={{
+      flex:1, minWidth:0,
+      display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+      padding:'6px 8px', borderRadius:8,
+      border: `1.5px solid ${checked ? color : 'var(--card-border)'}`,
+      background: checked ? color + '14' : 'var(--card-bg)',
+      cursor:'pointer', fontFamily:'var(--font-subheading)',
+      fontWeight:600, color:'var(--text-primary)',
+      transition:'all 0.15s', whiteSpace:'nowrap',
+    }}>
+    <span style={{
+      width:13, height:13, borderRadius:3,
+      background: checked ? color : 'transparent',
+      border: `1.5px solid ${checked ? color : 'var(--text-tertiary)'}`,
+      display:'inline-flex', alignItems:'center', justifyContent:'center',
+      color:'#ffffff', flexShrink:0,
+    }}>
+      {checked && (
+        <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
+          <path d="M2.5 6.2l2.4 2.3L9.5 3.7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+    </span>
+    <span style={{display:'flex', flexDirection:'column', alignItems:'flex-start', lineHeight:1.1, minWidth:0}}>
+      <span style={{fontSize:11, fontWeight:700}}>{label}</span>
+      {sublabel && (
+        <span style={{fontSize:11, fontWeight:700}}>{sublabel}</span>
+      )}
+    </span>
+  </button>
+);
+
+// ── Right-rail sample data (User + Company) ──
+const HOME_USER_DEFAULT = {
+  firstName: 'Sarah',
+  lastName:  'Johnson',
+  phone:     '+1 (555) 847-2910',
+  email:     'sarah.johnson@metroauto.com',
+  jobTitle:  'Marketing Director',
+};
+
+const HOME_COMPANY_DEFAULT = {
+  name:    'Metro Automotive Group',
+  // Company Info
+  dealerName:   'Metro Automotive Group',
+  clientKey:    'MAG-3847',
+  oemNameplate: 'Multi-brand (Ford / Honda / Toyota)',
+  dealerCode:   'F8473',
+  address: { street:'4280 W Industrial Blvd', city:'Phoenix', state:'AZ', postal:'85043' },
+  // Account Info
+  accountDirector: {
+    firstName: 'James', lastName: 'Whitaker',
+    phone:     '+1 (833) 555-2010',
+    email:     'james.whitaker@convergenceauto.com',
+  },
+  salesTrackingLine:   '+1 (800) 555-8742',
+  serviceTrackingLine: '+1 (800) 555-8743',
+  recallTrackingLine:  '+1 (800) 555-8744',
+  emailDomain:         'metroauto.com',
+  websiteUrl:          'https://www.metroauto.com',
+  salesPhoneLine:      '+1 (602) 555-0199',
+  servicePhoneLine:    '+1 (602) 555-0241',
+  // Technical Info
+  adfXmlEmail:       'adf-leads@metroauto.com',
+  crm:               'VinSolutions',
+  dmsProvider:       'CDK Global',
+  associatedVendors: ['Google Ads','Meta Ads','AutoTrader'],
+};
+
+const HOME_VENDOR_OPTIONS = [
+  'Google Ads','Meta Ads','AutoTrader','Cars.com','CarGurus',
+  'TrueCar','Edmunds','KBB','Carfax','TradePending',
+  'Dealer.com','CarNow','Podium','LotLinx','Reynolds & Reynolds',
+];
+
+// Inventory aggregated by Make + Model from the Pipelines integration sample data.
+const HOME_INVENTORY_BY_MODEL = (() => {
+  const map = new Map();
+  INVENTORY_ROWS.forEach(row => {
+    const make = row[3];
+    const model = row[4];
+    const key = `${make}|${model}`;
+    if (!map.has(key)) map.set(key, { make, model, label: `${make} ${model}`, count: 0 });
+    map.get(key).count++;
+  });
+  return Array.from(map.values()).sort((a,b) => b.count - a.count || a.label.localeCompare(b.label));
+})();
+
+// Colour per make so bars stay readable when many models stack horizontally.
+const HOME_MAKE_COLORS = {
+  BMW:'#5E10BC', Toyota:'#80E55C', Honda:'#F7E749', Ford:'#22c55e',
+  Chevrolet:'#7E54D9', Hyundai:'#f59e0b', RAM:'#ec4899', Nissan:'#14b8a6',
+  Lexus:'#0ea5e9', Jeep:'#d97706', Kia:'#ef4444', GMC:'#84cc16', Subaru:'#a855f7',
+  Mazda:'#06b6d4', Volkswagen:'#f43f5e', Acura:'#6366f1',
+};
+const homeColorForMake = (make) => HOME_MAKE_COLORS[make] || '#9c96ae';
+
+// Compact label / value field — value is an inline-editable input. Hover or
+// focus reveals it as a proper input; otherwise it sits flat with the row.
+const HomeEditField = ({ label, value, onChange, type='text', placeholder='—', readOnly }) => (
+  <div style={{display:'grid', gridTemplateColumns:'112px 1fr', gap:10, alignItems:'center', padding:'5px 0'}}>
+    <span style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>{label}</span>
+    <input
+      type={type}
+      value={value || ''}
+      onChange={readOnly ? undefined : (e => onChange(e.target.value))}
+      readOnly={readOnly}
+      placeholder={placeholder}
+      style={{
+        width:'100%', padding:'4px 6px',
+        border:'1px solid transparent', borderRadius:6,
+        background:'transparent',
+        fontFamily:'var(--font-subheading)', fontSize:12, fontWeight:600,
+        color:'var(--text-primary)', outline:'none', transition:'all 0.12s',
+      }}
+      onFocus={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.background='var(--input-bg)'; }}
+      onBlur={e =>  { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent'; }}
+      onMouseEnter={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.background='rgba(0,0,0,0.025)'; }}
+      onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.background='transparent'; }}
+    />
+  </div>
+);
+
+// Collapsible section used inside the Company card.
+const HomeCollapsible = ({ title, expanded, onToggle, children }) => (
+  <div>
+    <button onClick={onToggle} style={{
+      width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'10px 2px 10px 2px', border:'none', background:'transparent', cursor:'pointer',
+    }}>
+      <span className="tp-group-head-label">{title}</span>
+      <span style={{opacity:0.55, display:'inline-flex', transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition:'transform 0.15s'}}>
+        <Icon name="chevronDown" size={13}/>
+      </span>
+    </button>
+    {expanded && <div style={{padding:'2px 2px 12px'}}>{children}</div>}
+  </div>
+);
+
+// Multi-select chip control — used for Associated Vendors.
+const HomeMultiSelect = ({ label, options, values, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const remaining = options.filter(o => !values.includes(o));
+  return (
+    <div style={{padding:'8px 0 4px'}}>
+      <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6}}>{label}</div>
+      <div style={{display:'flex', flexWrap:'wrap', gap:6, position:'relative'}}>
+        {values.map(v => (
+          <span key={v} style={{
+            display:'inline-flex', alignItems:'center', gap:6,
+            padding:'4px 6px 4px 10px', borderRadius:999,
+            background:'rgba(94,16,188,0.12)', color:'var(--accent)',
+            fontFamily:'var(--font-subheading)', fontSize:11, fontWeight:600,
+          }}>
+            {v}
+            <button onClick={() => onChange(values.filter(x => x !== v))}
+              title="Remove"
+              style={{background:'transparent', border:'none', cursor:'pointer', color:'inherit', display:'inline-flex', padding:0, opacity:0.7}}>
+              <Icon name="close" size={9}/>
+            </button>
+          </span>
+        ))}
+        <button onClick={() => setOpen(o => !o)}
+          disabled={remaining.length === 0}
+          style={{
+            display:'inline-flex', alignItems:'center', gap:5,
+            padding:'4px 10px', borderRadius:999,
+            border:'1px dashed var(--card-border)', background:'transparent', cursor: remaining.length === 0 ? 'default' : 'pointer',
+            fontFamily:'var(--font-subheading)', fontSize:11, fontWeight:600, color:'var(--text-tertiary)',
+            opacity: remaining.length === 0 ? 0.4 : 1,
+          }}>
+          <Icon name="plus" size={9}/> Add vendor
+        </button>
+        {open && remaining.length > 0 && (
+          <>
+            <div style={{position:'fixed', inset:0, zIndex:55}} onClick={() => setOpen(false)}/>
+            <div style={{
+              position:'absolute', top:'calc(100% + 6px)', left:0,
+              background:'var(--card-bg)', border:'1px solid var(--card-border)',
+              borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,0.18)',
+              zIndex:60, maxHeight:260, overflowY:'auto', padding:4, minWidth:200,
+            }}>
+              {remaining.map(o => (
+                <button key={o}
+                  onClick={() => { onChange([...values, o]); setOpen(false); }}
+                  style={{
+                    width:'100%', textAlign:'left', padding:'6px 10px',
+                    border:'none', background:'transparent', cursor:'pointer',
+                    borderRadius:6, fontFamily:'var(--font-subheading)', fontSize:12, color:'var(--text-primary)',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background='var(--badge-bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                  {o}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const HomeScreen = ({ tweaks }) => {
+  const TODAY = HOME_TODAY;
+  const chartStyle = tweaks?.chartStyle || 'filled';
+
+  // Date filter — DateRangeDropdown contract
+  const [dateFilter, setDateFilter] = useState({ datePreset:'prev_30', label:'Previous 30 Days' });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [datePickerPos, setDatePickerPos] = useState({ top:0, left:0 });
+
+  // Calendar nav (independent of the date filter)
+  const [calMonth, setCalMonth] = useState(new Date(2026, 4, 1));
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // ── Right rail: editable User Info + Company info ──
+  const [userInfo,   setUserInfo]    = useState(HOME_USER_DEFAULT);
+  const [companyInfo,setCompanyInfo] = useState(HOME_COMPANY_DEFAULT);
+
+  // ── Tools area (main panel) ──
+  const [activeTool, setActiveTool] = useState('optin');
+  const [copiedKey,  setCopiedKey]  = useState(null);
+  const [optInForm,  setOptInForm]  = useState({ firstName:'', lastName:'', email:'', mobile:'' });
+  const [optInChecks,setOptInChecks]= useState({ transactional:false, promotional:false });
+  const copyToClip = (key, text) => {
+    try { (navigator.clipboard && navigator.clipboard.writeText(text)) || (() => {
+      const ta = document.createElement('textarea'); ta.value = text;
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    })(); } catch (e) {}
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(k => k === key ? null : k), 1600);
+  };
+  const clearOptIn = () => {
+    setOptInForm({ firstName:'', lastName:'', email:'', mobile:'' });
+    setOptInChecks({ transactional:false, promotional:false });
+  };
+  const optInUrl   = `https://portal.convergenceauto.com/opt_in/${companyInfo.clientKey}`;
+  const optInEmbed = `<iframe src="https://embed.convergenceauto.com/?widget=optin&client-key=${companyInfo.clientKey}" style="width: 100%; height: 100%;"></iframe>`;
+
+  // TextMe Chat Widget
+  const [widgetShown, setWidgetShown] = useState(false);
+  const widgetInboxId = 'e8fdc313-ce39-4c9f-8140-1db01837a0aa';
+  const widgetBrandId = 'ca55e2e6-00de-4909-959b-d6f2b16d9d57';
+  const widgetAvatar  = 'https://assets.messagemgr.com/img/stock-headshot-female-01.jpg';
+  const widgetPopup   = 'Hi! How can we help you? \ud83d\udc4b';
+  const widgetEmbed   = `<script id="textme-widget-js" type="text/javascript" src="https://assets.messagemgr.com/js/textme-widget.js" async defer data-inbox="${widgetInboxId}" data-brand="${widgetBrandId}" data-color="" data-avatar="${widgetAvatar}" data-popup="${widgetPopup}"><\/script>`;
+
+  // Phone Lookup
+  const [phoneLookupInput,   setPhoneLookupInput]   = useState('');
+  const [phoneLookupLoading, setPhoneLookupLoading] = useState(false);
+  const [phoneLookupError,   setPhoneLookupError]   = useState('');
+  const [phoneLookupResult,  setPhoneLookupResult]  = useState(null);
+  // E.164 = leading '+' then 1–15 digits, first digit 1–9.
+  const E164_RE = /^\+[1-9]\d{1,14}$/;
+  const isValidE164 = (v) => E164_RE.test((v || '').trim());
+
+  const runPhoneLookup = async () => {
+    const num = (phoneLookupInput || '').trim();
+    setPhoneLookupError('');
+    setPhoneLookupResult(null);
+    if (!isValidE164(num)) {
+      setPhoneLookupError('Please enter a phone number in E.164 format (e.g. +16192451678).');
+      return;
+    }
+    setPhoneLookupLoading(true);
+    try {
+      // Replace with the production endpoint once available.
+      const res = await fetch(`/api/phone-lookup?number=${encodeURIComponent(num)}`);
+      if (!res.ok) throw new Error(`Lookup failed (HTTP ${res.status})`);
+      const data = await res.json();
+      setPhoneLookupResult(data);
+    } catch (err) {
+      // Fall back to a demo payload so the UI can be exercised before the API is wired up.
+      setPhoneLookupResult({
+        validatedNumber:          num,
+        validatedNumberFormatted: num,
+        status:                   'mobile',
+        type:                     'mobile',
+        carrier:                  'CELLCO PARTNERSHIP DBA VERIZON WIRELESS - CA',
+        carrierParent:            'Verizon',
+        carrierChangedDt:         'December 30, 2019, 12:00 AM',
+        previousCarrier:          'NEW CINGULAR WIRELESS PCS, LLC - GA',
+        blacklisted:              'False',
+      });
+      setPhoneLookupError('Showing sample response — live lookup service not reachable from this preview.');
+    } finally {
+      setPhoneLookupLoading(false);
+    }
+  };
+
+  const clearPhoneLookup = () => {
+    setPhoneLookupInput('');
+    setPhoneLookupError('');
+    setPhoneLookupResult(null);
+  };
+
+  const [expanded,   setExpanded]    = useState({ company:true, account:false, technical:false });
+  const toggleExpanded = (k) => setExpanded(p => ({ ...p, [k]: !p[k] }));
+  const updateUser    = (patch) => setUserInfo(u => ({ ...u, ...patch }));
+  const updateCompany = (patch) => setCompanyInfo(c => ({ ...c, ...patch }));
+  const updateAddress = (patch) => setCompanyInfo(c => ({ ...c, address:{ ...c.address, ...patch } }));
+
+  // ── Chart aggregates ──
+  const transactionsByType = useMemo(() => {
+    const sales   = HOME_TRANSACTIONS.filter(t => t.dataType === 'sales').length;
+    const service = HOME_TRANSACTIONS.filter(t => t.dataType === 'service').length;
+    return [
+      { name:'Sales',   value:sales,   color:'#5E10BC' },
+      { name:'Service', value:service, color:'#80E55C' },
+    ];
+  }, []);
+  const transactionsTotal = transactionsByType.reduce((s,d) => s + d.value, 0);
+
+  const phoneCallsByLine = useMemo(() => {
+    const cnt = HOME_PHONE_CALLS.reduce((a,c) => (a[c.lineType] = (a[c.lineType]||0)+1, a), {});
+    return [
+      { lineType:'Sales Line',   value:cnt['Sales Line']   || 0, color:'#5E10BC' },
+      { lineType:'Service Line', value:cnt['Service Line'] || 0, color:'#7E54D9' },
+      { lineType:'Recall Line',  value:cnt['Recall Line']  || 0, color:'#F7E749' },
+    ];
+  }, []);
+
+  // ── Calendar event index ──
+  const eventsByDate = useMemo(() => {
+    const map = new Map();
+    HOME_CALENDAR_ITEMS.forEach(item => {
+      const arr = map.get(item.date) || [];
+      arr.push(item);
+      map.set(item.date, arr);
+    });
+    return map;
+  }, []);
+
+  // ── Calendar helpers ──
+  const dKey = (d) => {
+    if (!d) return null;
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
+  const isSameDayLocal = (a,b) => a && b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  const colorFor = (item) => {
+    if (item.kind === 'service') return { bg:'#F7E749', fg:'#5b4900' };
+    const et = (item.eventType || '').toLowerCase();
+    if (et.includes('follow up'))   return { bg:'#80E55C', fg:'#1f4d10' };
+    if (et.includes('appointment')) return { bg:'#7E54D9', fg:'#ffffff' };
+    return { bg:'#7E54D9', fg:'#ffffff' };
+  };
+
+  const openDatePicker = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDatePickerPos({ top: rect.bottom + 8, left: Math.max(8, rect.right - 222) });
+    setDatePickerOpen(true);
+  };
+
+  // Pie slice label — shows percentage inside each slice
+  const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    if (!percent || percent < 0.04) return null;
+    const RADIAN = Math.PI / 180;
+    const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const x = cx + r * Math.cos(-midAngle * RADIAN);
+    const y = cy + r * Math.sin(-midAngle * RADIAN);
+    return (
+      <text x={x} y={y} fill="#ffffff"
+        fontFamily="var(--font-display)" fontWeight="700" fontSize="13"
+        textAnchor="middle" dominantBaseline="central"
+        style={{textShadow:'0 1px 2px rgba(0,0,0,0.25)'}}>
+        {(percent * 100).toFixed(0)}%
+      </text>
+    );
+  };
+
+  return (
+    <div className="screen" style={{display:'flex', flexDirection:'column', height:'100%'}}>
+      <div className="topbar"><div className="topbar-title" style={{marginLeft:48}}>Home</div></div>
+
+      <div className="cx-screen" style={{padding:'22px 28px 32px'}}>
+        {/* Header */}
+        <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', gap:16, marginBottom:18, flexWrap:'wrap'}}>
+          <div>
+            <div className="cx-h1" style={{marginBottom:2}}>Welcome back, {userInfo.firstName}</div>
+            <div className="cx-sub" style={{margin:0}}>Embeds, hosted links, and assets you can deploy to your customers.</div>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:10, fontFamily:'var(--font-subheading)', fontSize:11, color:'var(--text-tertiary)'}}>
+            <span style={{display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, background:'rgba(94,16,188,0.08)', color:'var(--accent)', fontWeight:700, letterSpacing:'0.04em', textTransform:'uppercase', fontSize:10}}>
+              <span style={{width:6, height:6, borderRadius:'50%', background:'currentColor'}}/>
+              Client Key &middot; {companyInfo.clientKey}
+            </span>
+          </div>
+        </div>
+
+        {/* Dashboards (left) + summary rail (right) */}
+        <div style={{display:'grid', gridTemplateColumns:'minmax(0,1fr) 360px', gap:20, alignItems:'stretch'}}>
+
+          {/* LEFT — Tools area */}
+          <div style={{display:'flex', flexDirection:'column', gap:14, minWidth:0}}>
+
+            {/* Tool selector — horizontal pills */}
+            <div style={{
+              display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
+              padding:'8px 10px', background:'var(--card-bg)',
+              border:'1px solid var(--card-border)', borderRadius:'var(--radius-lg)',
+              boxShadow:'var(--card-shadow)',
+            }}>
+              <span style={{fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em', padding:'0 8px 0 6px', borderRight:'1px solid var(--card-border)', marginRight:2, lineHeight:'24px'}}>Tools</span>
+              {[
+                { id:'optin',   label:'SMS Opt-In Form',    icon:'msgOut',       enabled:true  },
+                { id:'widget',  label:'TextMe Chat Widget',icon:'msgIn',        enabled:true  },
+                { id:'lookup',  label:'Phone Lookup',       icon:'cellphone',    enabled:true  },
+              ].map(t => {
+                const active = activeTool === t.id;
+                return (
+                  <button key={t.id}
+                    onClick={() => t.enabled && setActiveTool(t.id)}
+                    disabled={!t.enabled}
+                    style={{
+                      display:'inline-flex', alignItems:'center', gap:7,
+                      padding:'7px 12px 7px 10px', borderRadius:999,
+                      border: active ? '1px solid var(--accent)' : '1px solid transparent',
+                      background: active ? 'rgba(94,16,188,0.10)' : 'transparent',
+                      color: active ? 'var(--accent)' : (t.enabled ? 'var(--text-secondary)' : 'var(--text-tertiary)'),
+                      fontFamily:'var(--font-subheading)', fontSize:12, fontWeight:600,
+                      cursor: t.enabled ? 'pointer' : 'not-allowed',
+                      opacity: t.enabled ? 1 : 0.55,
+                      transition:'background .15s, color .15s, border-color .15s',
+                    }}
+                    onMouseEnter={e => { if (t.enabled && !active) e.currentTarget.style.background = 'var(--badge-bg)'; }}
+                    onMouseLeave={e => { if (t.enabled && !active) e.currentTarget.style.background = 'transparent'; }}>
+                    <Icon name={t.icon} size={13}/>
+                    {t.label}
+                    {!t.enabled && (
+                      <span style={{
+                        marginLeft:2, padding:'1px 6px', borderRadius:4,
+                        background:'rgba(0,0,0,0.05)', color:'var(--text-tertiary)',
+                        fontSize:8.5, fontWeight:800, letterSpacing:'0.08em', textTransform:'uppercase',
+                      }}>Soon</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active tool card */}
+            <div style={{
+              background:'var(--card-bg)', border:'1px solid var(--card-border)',
+              borderRadius:'var(--radius-lg)', boxShadow:'var(--card-shadow)',
+              padding:'18px 20px 20px', display:'flex', flexDirection:'column', gap:18,
+            }}>
+              {activeTool === 'optin' && (<React.Fragment>
+              {/* Tool header */}
+              <div style={{display:'flex', alignItems:'flex-start', gap:14, paddingBottom:14, borderBottom:'1px solid var(--card-border)'}}>
+                <div style={{
+                  flexShrink:0, width:44, height:44, borderRadius:12,
+                  background:'rgba(94,16,188,0.13)', color:'var(--accent)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                }}>
+                  <Icon name="msgOut" size={20}/>
+                </div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                    <div style={{fontFamily:'var(--font-display)', fontSize:18, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.01em'}}>SMS Opt-In Form</div>
+                    <span style={{
+                      display:'inline-flex', alignItems:'center', gap:5,
+                      padding:'2px 8px', borderRadius:4,
+                      background:'rgba(61,184,50,0.13)', color:'#1f7a18',
+                      fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                      textTransform:'uppercase', letterSpacing:'0.08em',
+                    }}>
+                      <span style={{width:6, height:6, borderRadius:'50%', background:'#3db832'}}/> Active
+                    </span>
+                  </div>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:12.5, color:'var(--text-secondary)', marginTop:4, lineHeight:1.45, maxWidth:640}}>
+                    Collect TCPA-compliant SMS consent from your customers. Embed on your dealership site or share the hosted link directly &mdash; submissions land in your Convergence customer database in real time.
+                  </div>
+                </div>
+              </div>
+
+              {/* Share & Embed */}
+              <div style={{display:'grid', gridTemplateColumns:'1fr', gap:12}}>
+                <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em'}}>Share &amp; Embed</div>
+
+                {/* Hosted URL */}
+                <div style={{border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)', padding:'12px 14px', background:'var(--input-bg)'}}>
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:6}}>
+                    <div style={{display:'inline-flex', alignItems:'center', gap:7, color:'var(--text-secondary)'}}>
+                      <Icon name="share" size={12}/>
+                      <span style={{fontFamily:'var(--font-subheading)', fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em'}}>Hosted Opt-In URL</span>
+                    </div>
+                    <button
+                      onClick={() => copyToClip('url', optInUrl)}
+                      style={{
+                        display:'inline-flex', alignItems:'center', gap:6,
+                        padding:'5px 10px', borderRadius:6,
+                        background: copiedKey === 'url' ? 'rgba(61,184,50,0.13)' : 'var(--card-bg)',
+                        border:'1px solid ' + (copiedKey === 'url' ? '#3db832' : 'var(--card-border)'),
+                        color: copiedKey === 'url' ? '#1f7a18' : 'var(--text-secondary)',
+                        fontFamily:'var(--font-subheading)', fontSize:11, fontWeight:700,
+                        cursor:'pointer', transition:'all .15s',
+                      }}>
+                      <Icon name={copiedKey === 'url' ? 'check' : 'copy'} size={11}/>
+                      {copiedKey === 'url' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <code style={{
+                    display:'block',
+                    fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontSize:13, color:'var(--text-primary)',
+                    wordBreak:'break-all', lineHeight:1.4,
+                  }}>{optInUrl}</code>
+                </div>
+
+                {/* Embed code */}
+                <div style={{border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)', padding:'12px 14px', background:'var(--input-bg)'}}>
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:6}}>
+                    <div style={{display:'inline-flex', alignItems:'center', gap:7, color:'var(--text-secondary)'}}>
+                      <Icon name="grid" size={12}/>
+                      <span style={{fontFamily:'var(--font-subheading)', fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em'}}>Embed Code &middot; iframe</span>
+                    </div>
+                    <button
+                      onClick={() => copyToClip('embed', optInEmbed)}
+                      style={{
+                        display:'inline-flex', alignItems:'center', gap:6,
+                        padding:'5px 10px', borderRadius:6,
+                        background: copiedKey === 'embed' ? 'rgba(61,184,50,0.13)' : 'var(--card-bg)',
+                        border:'1px solid ' + (copiedKey === 'embed' ? '#3db832' : 'var(--card-border)'),
+                        color: copiedKey === 'embed' ? '#1f7a18' : 'var(--text-secondary)',
+                        fontFamily:'var(--font-subheading)', fontSize:11, fontWeight:700,
+                        cursor:'pointer', transition:'all .15s',
+                      }}>
+                      <Icon name={copiedKey === 'embed' ? 'check' : 'copy'} size={11}/>
+                      {copiedKey === 'embed' ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <code style={{
+                    display:'block',
+                    fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontSize:12.5, color:'var(--text-primary)',
+                    whiteSpace:'pre-wrap', wordBreak:'break-all', lineHeight:1.45,
+                  }}>{optInEmbed}</code>
+                </div>
+              </div>
+
+              {/* Live preview */}
+              <div>
+                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:8}}>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em'}}>Live Preview</div>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:10.5, color:'var(--text-tertiary)'}}>
+                    Renders exactly as it will on your customer's screen.
+                  </div>
+                </div>
+
+                {/* Browser-chrome wrapper */}
+                <div style={{
+                  border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
+                  overflow:'hidden', background:'#ffffff',
+                }}>
+                  {/* fake browser bar */}
+                  <div style={{
+                    display:'flex', alignItems:'center', gap:8,
+                    padding:'8px 12px', borderBottom:'1px solid var(--card-border)',
+                    background:'#f3f1ec',
+                  }}>
+                    <div style={{display:'flex', gap:5}}>
+                      <span style={{width:10, height:10, borderRadius:'50%', background:'#ff5f57'}}/>
+                      <span style={{width:10, height:10, borderRadius:'50%', background:'#febc2e'}}/>
+                      <span style={{width:10, height:10, borderRadius:'50%', background:'#28c840'}}/>
+                    </div>
+                    <div style={{flex:1, display:'flex', alignItems:'center', gap:7, padding:'4px 10px', background:'#ffffff', borderRadius:6, border:'1px solid #e5e2dc', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:11, color:'#6b6480'}}>
+                      <span style={{color:'#3db832'}}>&#x1f512;</span>
+                      <span style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{optInUrl}</span>
+                    </div>
+                  </div>
+
+                  {/* embed content */}
+                  <div style={{padding:'20px 22px 22px', color:'#1f2937'}}>
+                    {/* URL header (matches the hosted page) */}
+                    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:14}}>
+                      <span style={{fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:12.5, fontWeight:700, color:'#1f2937'}}>{optInUrl}</span>
+                      <button
+                        onClick={() => copyToClip('url2', optInUrl)}
+                        title="Copy link"
+                        style={{
+                          width:22, height:22, display:'inline-flex', alignItems:'center', justifyContent:'center',
+                          border:'none', background:'transparent', color:'#6b7280', cursor:'pointer', borderRadius:4,
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <Icon name={copiedKey === 'url2' ? 'check' : 'copy'} size={12}/>
+                      </button>
+                    </div>
+
+                    {/* Terms of Service */}
+                    <div style={{fontFamily:'var(--font-body)', fontSize:12.5, color:'#374151', lineHeight:1.55}}>
+                      <div style={{fontWeight:600, marginBottom:8, color:'#1f2937'}}>Terms of Service:</div>
+                      <p style={{marginBottom:10}}>Your use of the Service constitutes your agreement to these terms and conditions (&ldquo;Mobile Terms&rdquo;). We may modify or cancel the Service or any of its features without notice. To the extent permitted by applicable law, we may also modify these Mobile Terms at any time and your continued use of the Service following the effective date of any such changes shall constitute your acceptance of such changes.</p>
+                      <p style={{marginBottom:10}}>By consenting to our SMS/text messaging service, you agree to receive recurring SMS/text messages from and on behalf of our organization through your wireless provider to the mobile number you provided, even if your mobile number is registered on any state or federal Do Not Call list. Text messages may be sent using an automatic telephone dialing system or other technology. Service-related messages may include updates, alerts, and information (e.g., order updates, account alerts, etc.). Promotional messages may include promotions, specials, and other marketing offers (e.g., cart reminders).</p>
+                      <p style={{marginBottom:10}}>You understand that you do not have to sign up for this program in order to make any purchases, and your consent is not a condition of any purchase. Your participation in this program is completely voluntary.</p>
+                      <p style={{marginBottom:10}}>We do not charge for the Service, but you are responsible for all charges and fees associated with text messaging imposed by your wireless provider. Message frequency varies. Message and data rates may apply. Check your mobile plan and contact your wireless provider for details. You are solely responsible for all charges related to SMS/text messages, including charges from your wireless provider.</p>
+                      <p>You may opt-out of the Service at any time. Text the single keyword command <strong>STOP</strong> or click the unsubscribe link (where available) in any text message to cancel. You&rsquo;ll receive a one-time opt-out confirmation text message. No further messages will be sent to your mobile device, unless initiated by you. If you have subscribed to other mobile message programs and wish to cancel, except where applicable law requires otherwise, you will need to opt out separately from those programs by following the instructions provided in their respective mobile terms. For Service support or assistance, text <strong>HELP</strong> back.</p>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{borderTop:'1px solid #e5e7eb', margin:'18px 0 18px'}}/>
+
+                    {/* Form fields */}
+                    <div style={{display:'grid', gridTemplateColumns:'repeat(2, minmax(0,1fr))', gap:'14px 22px'}}>
+                      {[
+                        { key:'firstName', label:'First Name',    type:'text',  ph:'' },
+                        { key:'lastName',  label:'Last Name',     type:'text',  ph:'' },
+                        { key:'email',     label:'Email Address', type:'email', ph:'' },
+                        { key:'mobile',    label:'Mobile Phone',  type:'tel',   ph:'' },
+                      ].map(f => (
+                        <label key={f.key} style={{display:'flex', flexDirection:'column', gap:6}}>
+                          <span style={{fontFamily:'var(--font-body)', fontSize:13, color:'#1f2937'}}>
+                            {f.label}<span style={{color:'#dc2626', marginLeft:2}}>*</span>
+                          </span>
+                          <input
+                            type={f.type}
+                            value={optInForm[f.key]}
+                            onChange={e => setOptInForm(p => ({ ...p, [f.key]: e.target.value }))}
+                            style={{
+                              padding:'9px 11px', borderRadius:4,
+                              border:'1px solid #cbd5e1', background:'#e5e9ee',
+                              fontFamily:'var(--font-body)', fontSize:13, color:'#0f172a',
+                              outline:'none', transition:'border-color .15s, box-shadow .15s',
+                            }}
+                            onFocus={e => { e.currentTarget.style.borderColor='#5E10BC'; e.currentTarget.style.boxShadow='0 0 0 3px rgba(94,16,188,0.12)'; e.currentTarget.style.background='#ffffff'; }}
+                            onBlur={e => { e.currentTarget.style.borderColor='#cbd5e1'; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.background='#e5e9ee'; }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* Consent checkboxes */}
+                    <div style={{display:'flex', flexDirection:'column', gap:8, marginTop:14, fontFamily:'var(--font-body)', fontSize:12.5, color:'#374151', lineHeight:1.5}}>
+                      <label style={{display:'flex', alignItems:'flex-start', gap:8, cursor:'pointer'}}>
+                        <input type="checkbox"
+                          checked={optInChecks.transactional}
+                          onChange={e => setOptInChecks(p => ({ ...p, transactional: e.target.checked }))}
+                          style={{marginTop:3, accentColor:'#5E10BC', cursor:'pointer'}}/>
+                        <span>By checking, you are allowing to receive <strong>transactional/informational SMS</strong> communications regarding account notifications, customer care, etc, from {companyInfo.name}. Messages frequency may vary, Message and data rates may apply, <strong>reply HELP for help or STOP to opt-out</strong>.</span>
+                      </label>
+                      <label style={{display:'flex', alignItems:'flex-start', gap:8, cursor:'pointer'}}>
+                        <input type="checkbox"
+                          checked={optInChecks.promotional}
+                          onChange={e => setOptInChecks(p => ({ ...p, promotional: e.target.checked }))}
+                          style={{marginTop:3, accentColor:'#5E10BC', cursor:'pointer'}}/>
+                        <span>By checking, you are allowing to receive <strong>promotional/marketing SMS</strong> communications regarding account notifications, customer care, etc, from {companyInfo.name}. Frequency may vary, Message and data rates may apply, <strong>reply HELP for help or STOP to opt-out</strong>.</span>
+                      </label>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{display:'flex', justifyContent:'flex-end', gap:10, marginTop:18}}>
+                      <button
+                        onClick={clearOptIn}
+                        style={{
+                          padding:'10px 22px', borderRadius:999, border:'none',
+                          background:'#5E10BC', color:'#ffffff',
+                          fontFamily:'var(--font-display)', fontSize:13, fontWeight:700,
+                          letterSpacing:'0.04em', cursor:'pointer',
+                          boxShadow:'0 1px 2px rgba(0,0,0,0.06)',
+                          transition:'background .15s, transform .05s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background='#4a0d96'}
+                        onMouseLeave={e => e.currentTarget.style.background='#5E10BC'}
+                        onMouseDown={e => e.currentTarget.style.transform='translateY(1px)'}
+                        onMouseUp={e => e.currentTarget.style.transform='translateY(0)'}>
+                        CLEAR FORM
+                      </button>
+                      <button
+                        onClick={() => { /* preview only */ }}
+                        style={{
+                          padding:'10px 22px', borderRadius:999, border:'none',
+                          background:'#80E55C', color:'#0d2a05',
+                          fontFamily:'var(--font-display)', fontSize:13, fontWeight:800,
+                          letterSpacing:'0.04em', cursor:'pointer',
+                          boxShadow:'0 1px 2px rgba(0,0,0,0.06)',
+                          transition:'background .15s, transform .05s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background='#6cd247'}
+                        onMouseLeave={e => e.currentTarget.style.background='#80E55C'}
+                        onMouseDown={e => e.currentTarget.style.transform='translateY(1px)'}
+                        onMouseUp={e => e.currentTarget.style.transform='translateY(0)'}>
+                        OPT-IN
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              </React.Fragment>)}
+
+              {activeTool === 'widget' && (<React.Fragment>
+                {/* Tool header */}
+                <div style={{display:'flex', alignItems:'flex-start', gap:14, paddingBottom:14, borderBottom:'1px solid var(--card-border)'}}>
+                  <div style={{
+                    flexShrink:0, width:44, height:44, borderRadius:12,
+                    background:'rgba(94,16,188,0.13)', color:'var(--accent)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    <Icon name="msgIn" size={20}/>
+                  </div>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                      <div style={{fontFamily:'var(--font-display)', fontSize:18, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.01em'}}>TextMe Chat Widget</div>
+                      <span style={{
+                        display:'inline-flex', alignItems:'center', gap:5,
+                        padding:'2px 8px', borderRadius:4,
+                        background:'rgba(61,184,50,0.13)', color:'#1f7a18',
+                        fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                        textTransform:'uppercase', letterSpacing:'0.08em',
+                      }}>
+                        <span style={{width:6, height:6, borderRadius:'50%', background:'#3db832'}}/> Active
+                      </span>
+                    </div>
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:12.5, color:'var(--text-secondary)', marginTop:4, lineHeight:1.45, maxWidth:640}}>
+                      Drop the script tag below into your dealership's site &mdash; visitors get a floating chat bubble that routes straight into your TextMe inbox. Customize the brand color, avatar, and welcome popup from your widget settings.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Install snippet */}
+                <div style={{display:'grid', gridTemplateColumns:'1fr', gap:12}}>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em'}}>Install Snippet</div>
+
+                  <div style={{border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)', padding:'12px 14px', background:'var(--input-bg)'}}>
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:6}}>
+                      <div style={{display:'inline-flex', alignItems:'center', gap:7, color:'var(--text-secondary)'}}>
+                        <Icon name="grid" size={12}/>
+                        <span style={{fontFamily:'var(--font-subheading)', fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em'}}>Script Tag &middot; Paste before &lt;/body&gt;</span>
+                      </div>
+                      <button
+                        onClick={() => copyToClip('widgetEmbed', widgetEmbed)}
+                        style={{
+                          display:'inline-flex', alignItems:'center', gap:6,
+                          padding:'5px 10px', borderRadius:6,
+                          background: copiedKey === 'widgetEmbed' ? 'rgba(61,184,50,0.13)' : 'var(--card-bg)',
+                          border:'1px solid ' + (copiedKey === 'widgetEmbed' ? '#3db832' : 'var(--card-border)'),
+                          color: copiedKey === 'widgetEmbed' ? '#1f7a18' : 'var(--text-secondary)',
+                          fontFamily:'var(--font-subheading)', fontSize:11, fontWeight:700,
+                          cursor:'pointer', transition:'all .15s',
+                        }}>
+                        <Icon name={copiedKey === 'widgetEmbed' ? 'check' : 'copy'} size={11}/>
+                        {copiedKey === 'widgetEmbed' ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <code style={{
+                      display:'block',
+                      fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
+                      fontSize:12.5, color:'var(--text-primary)',
+                      whiteSpace:'pre-wrap', wordBreak:'break-all', lineHeight:1.5,
+                    }}>{widgetEmbed}</code>
+                  </div>
+
+                  {/* Show / Hide Widget toggle */}
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:14, padding:'4px 2px 0', flexWrap:'wrap'}}>
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.5, flex:'1 1 240px', minWidth:0}}>
+                      Render this snippet right here on the page to preview how the chat bubble will appear to your customers.
+                    </div>
+                    <button
+                      onClick={() => setWidgetShown(s => !s)}
+                      style={{
+                        flexShrink:0,
+                        display:'inline-flex', alignItems:'center', gap:7,
+                        padding:'10px 18px', borderRadius:999,
+                        background: widgetShown ? 'var(--card-bg)' : 'var(--accent)',
+                        border:'1px solid var(--accent)',
+                        color: widgetShown ? 'var(--accent)' : '#ffffff',
+                        fontFamily:'var(--font-display)', fontSize:12.5, fontWeight:700,
+                        letterSpacing:'0.03em',
+                        cursor:'pointer', transition:'all .15s',
+                        boxShadow: widgetShown ? 'none' : '0 1px 2px rgba(94,16,188,0.18)',
+                      }}>
+                      <span style={{width:7, height:7, borderRadius:'50%', background: widgetShown ? '#3db832' : '#ffffff', boxShadow: widgetShown ? '0 0 0 3px rgba(61,184,50,0.18)' : 'none'}}/>
+                      {widgetShown ? 'Hide Widget' : 'Show Widget'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Configuration summary */}
+                <div>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:8}}>Configuration</div>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(2, minmax(0,1fr))', gap:'10px 16px', border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)', padding:'12px 14px', background:'var(--input-bg)'}}>
+                    {[
+                      { label:'Inbox ID',         value: widgetInboxId, mono:true  },
+                      { label:'Brand ID',         value: widgetBrandId, mono:true  },
+                      { label:'Welcome Message',  value: widgetPopup,   mono:false },
+                      { label:'Avatar',           value: 'stock-headshot-female-01.jpg', mono:false },
+                    ].map((r, i) => (
+                      <div key={i} style={{display:'flex', flexDirection:'column', gap:2, minWidth:0}}>
+                        <span style={{fontFamily:'var(--font-subheading)', fontSize:9.5, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.08em'}}>{r.label}</span>
+                        <span style={{
+                          fontFamily: r.mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
+                          fontSize: r.mono ? 11.5 : 12.5,
+                          color:'var(--text-primary)',
+                          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                        }} title={r.value}>{r.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Floating widget render (fixed to viewport bottom-right) */}
+                {widgetShown && (
+                  <div style={{
+                    position:'fixed', right:24, bottom:24, zIndex:9999,
+                    display:'flex', flexDirection:'column', alignItems:'flex-end', gap:10,
+                    pointerEvents:'none',
+                  }}>
+                    {/* Popup speech bubble */}
+                    <div style={{
+                      position:'relative', pointerEvents:'auto',
+                      background:'#ffffff', color:'#1f2937',
+                      padding:'12px 36px 12px 14px', borderRadius:14,
+                      boxShadow:'0 12px 32px rgba(15,23,42,0.18), 0 2px 6px rgba(15,23,42,0.10)',
+                      fontFamily:'var(--font-body)', fontSize:13, fontWeight:500, lineHeight:1.35,
+                      maxWidth:240,
+                      animation:'tmw-popup-in .25s ease-out both',
+                    }}>
+                      {widgetPopup}
+                      <button
+                        onClick={() => setWidgetShown(false)}
+                        title="Dismiss"
+                        style={{
+                          position:'absolute', top:6, right:6, width:20, height:20, border:'none',
+                          background:'transparent', color:'#9ca3af', cursor:'pointer',
+                          display:'inline-flex', alignItems:'center', justifyContent:'center',
+                          borderRadius:4,
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background='#f3f4f6'; e.currentTarget.style.color='#4b5563'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#9ca3af'; }}>
+                        <Icon name="close" size={11}/>
+                      </button>
+                      {/* tail */}
+                      <span style={{
+                        position:'absolute', right:24, bottom:-7,
+                        width:14, height:14, background:'#ffffff', transform:'rotate(45deg)',
+                        boxShadow:'2px 2px 4px rgba(15,23,42,0.05)',
+                      }}/>
+                    </div>
+
+                    {/* Chat bubble button */}
+                    <button
+                      onClick={() => setWidgetShown(false)}
+                      title="Open chat"
+                      style={{
+                        pointerEvents:'auto',
+                        position:'relative',
+                        width:60, height:60, borderRadius:'50%',
+                        border:'3px solid #ffffff', padding:0,
+                        background:`url(${widgetAvatar}) center/cover, #5E10BC`,
+                        boxShadow:'0 8px 24px rgba(94,16,188,0.35), 0 3px 8px rgba(0,0,0,0.18)',
+                        cursor:'pointer',
+                        animation:'tmw-bubble-in .35s cubic-bezier(.34,1.56,.64,1) both',
+                      }}>
+                      {/* small chat indicator badge */}
+                      <span style={{
+                        position:'absolute', right:-2, bottom:-2,
+                        width:22, height:22, borderRadius:'50%',
+                        background:'#80E55C', color:'#0d2a05',
+                        display:'inline-flex', alignItems:'center', justifyContent:'center',
+                        boxShadow:'0 2px 6px rgba(0,0,0,0.20)',
+                        border:'2px solid #ffffff',
+                      }}>
+                        <Icon name="msgIn" size={11}/>
+                      </span>
+                    </button>
+
+                    <style>{`
+                      @keyframes tmw-popup-in {
+                        from { opacity:0; transform:translateY(8px) scale(0.96); }
+                        to   { opacity:1; transform:translateY(0) scale(1); }
+                      }
+                      @keyframes tmw-bubble-in {
+                        from { opacity:0; transform:translateY(20px) scale(0.6); }
+                        to   { opacity:1; transform:translateY(0) scale(1); }
+                      }
+                    `}</style>
+                  </div>
+                )}
+              </React.Fragment>)}
+
+              {activeTool === 'lookup' && (<React.Fragment>
+                {/* Tool header */}
+                <div style={{display:'flex', alignItems:'flex-start', gap:14, paddingBottom:14, borderBottom:'1px solid var(--card-border)'}}>
+                  <div style={{
+                    flexShrink:0, width:44, height:44, borderRadius:12,
+                    background:'rgba(94,16,188,0.13)', color:'var(--accent)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    <Icon name="cellphone" size={20}/>
+                  </div>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                      <div style={{fontFamily:'var(--font-display)', fontSize:18, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.01em'}}>Phone Lookup</div>
+                      <span style={{
+                        display:'inline-flex', alignItems:'center', gap:5,
+                        padding:'2px 8px', borderRadius:4,
+                        background:'rgba(61,184,50,0.13)', color:'#1f7a18',
+                        fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                        textTransform:'uppercase', letterSpacing:'0.08em',
+                      }}>
+                        <span style={{width:6, height:6, borderRadius:'50%', background:'#3db832'}}/> Active
+                      </span>
+                    </div>
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:12.5, color:'var(--text-secondary)', marginTop:4, lineHeight:1.45, maxWidth:640}}>
+                      Validate a phone number and inspect its carrier, line type, and porting history. Enter a number in E.164 format (e.g. <code style={{fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:12, color:'var(--text-primary)'}}>+16192451678</code>) to query the Convergence phone intelligence service.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Number entry */}
+                <div style={{display:'grid', gridTemplateColumns:'1fr', gap:12}}>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em'}}>Phone Number</div>
+
+                  <div style={{display:'flex', alignItems:'stretch', gap:10, flexWrap:'wrap'}}>
+                    <input
+                      type="tel"
+                      value={phoneLookupInput}
+                      onChange={e => setPhoneLookupInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !phoneLookupLoading) runPhoneLookup(); }}
+                      placeholder="+16192451678"
+                      spellCheck={false}
+                      autoComplete="off"
+                      style={{
+                        flex:'1 1 280px', minWidth:0,
+                        padding:'11px 14px',
+                        border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
+                        background:'var(--input-bg)', color:'var(--text-primary)',
+                        fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
+                        fontSize:14, letterSpacing:'0.01em',
+                        outline:'none', transition:'border-color .15s, box-shadow .15s',
+                      }}
+                      onFocus={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.boxShadow='0 0 0 3px rgba(94,16,188,0.12)'; }}
+                      onBlur={e => { e.currentTarget.style.borderColor='var(--card-border)'; e.currentTarget.style.boxShadow='none'; }}
+                    />
+                    <button
+                      onClick={runPhoneLookup}
+                      disabled={phoneLookupLoading || !phoneLookupInput.trim()}
+                      style={{
+                        flexShrink:0,
+                        display:'inline-flex', alignItems:'center', gap:8,
+                        padding:'11px 18px', borderRadius:999,
+                        background:'var(--accent)', border:'1px solid var(--accent)',
+                        color:'#ffffff',
+                        fontFamily:'var(--font-display)', fontSize:12.5, fontWeight:700,
+                        letterSpacing:'0.03em',
+                        cursor: (phoneLookupLoading || !phoneLookupInput.trim()) ? 'not-allowed' : 'pointer',
+                        opacity: (phoneLookupLoading || !phoneLookupInput.trim()) ? 0.6 : 1,
+                        transition:'all .15s',
+                        boxShadow:'0 1px 2px rgba(94,16,188,0.18)',
+                      }}>
+                      <Icon name="search" size={12}/>
+                      {phoneLookupLoading ? 'Checking…' : 'Check Phone Type'}
+                    </button>
+                    {(phoneLookupResult || phoneLookupError) && (
+                      <button
+                        onClick={clearPhoneLookup}
+                        style={{
+                          flexShrink:0,
+                          display:'inline-flex', alignItems:'center', gap:6,
+                          padding:'11px 14px', borderRadius:999,
+                          background:'var(--card-bg)', border:'1px solid var(--card-border)',
+                          color:'var(--text-secondary)',
+                          fontFamily:'var(--font-subheading)', fontSize:12, fontWeight:600,
+                          cursor:'pointer', transition:'all .15s',
+                        }}>
+                        <Icon name="close" size={11}/>
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {phoneLookupError && (
+                    <div style={{
+                      padding:'10px 12px', borderRadius:'var(--radius-md)',
+                      background: phoneLookupResult ? 'rgba(245,158,11,0.10)' : 'rgba(220,38,38,0.08)',
+                      border:'1px solid ' + (phoneLookupResult ? 'rgba(245,158,11,0.35)' : 'rgba(220,38,38,0.30)'),
+                      color: phoneLookupResult ? '#92400e' : '#991b1b',
+                      fontFamily:'var(--font-subheading)', fontSize:12, lineHeight:1.45,
+                    }}>
+                      {phoneLookupError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Results */}
+                {phoneLookupResult && (
+                  <div>
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:8}}>Lookup Result</div>
+                    <div style={{
+                      display:'grid',
+                      gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))',
+                      gap:'12px 16px',
+                      border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
+                      padding:'14px 16px', background:'var(--input-bg)',
+                    }}>
+                      {[
+                        { label:'Validated Number',           value: phoneLookupResult.validatedNumber,          mono:true  },
+                        { label:'Validated Number Formatted', value: phoneLookupResult.validatedNumberFormatted, mono:true  },
+                        { label:'Status',                     value: phoneLookupResult.status,                   mono:false },
+                        { label:'Type',                       value: phoneLookupResult.type,                     mono:false },
+                        { label:'Carrier',                    value: phoneLookupResult.carrier,                  mono:false },
+                        { label:'Carrier Parent',             value: phoneLookupResult.carrierParent,            mono:false },
+                        { label:'Carrier Changed Dt',         value: phoneLookupResult.carrierChangedDt,         mono:false },
+                        { label:'Previous Carrier',           value: phoneLookupResult.previousCarrier,          mono:false },
+                        { label:'Blacklisted',                value: phoneLookupResult.blacklisted,              mono:false, badge:true },
+                      ].map((r, i) => {
+                        const display = (r.value === null || r.value === undefined || r.value === '') ? '—' : String(r.value);
+                        const isBlacklistTrue  = r.badge && display.toLowerCase() === 'true';
+                        const isBlacklistFalse = r.badge && display.toLowerCase() === 'false';
+                        return (
+                          <div key={i} style={{display:'flex', flexDirection:'column', gap:4, minWidth:0}}>
+                            <span style={{
+                              display:'inline-flex', alignSelf:'flex-start', alignItems:'center',
+                              padding:'2px 8px', borderRadius:4,
+                              background:'rgba(94,16,188,0.10)', color:'var(--accent)',
+                              fontFamily:'var(--font-subheading)', fontSize:9.5, fontWeight:800,
+                              textTransform:'uppercase', letterSpacing:'0.08em',
+                            }}>{r.label}</span>
+                            {r.badge ? (
+                              <span style={{
+                                display:'inline-flex', alignSelf:'flex-start', alignItems:'center', gap:5,
+                                marginTop:2,
+                                padding:'3px 9px', borderRadius:999,
+                                background: isBlacklistTrue ? 'rgba(220,38,38,0.10)' : (isBlacklistFalse ? 'rgba(61,184,50,0.13)' : 'var(--card-bg)'),
+                                border:'1px solid ' + (isBlacklistTrue ? 'rgba(220,38,38,0.30)' : (isBlacklistFalse ? 'rgba(61,184,50,0.30)' : 'var(--card-border)')),
+                                color: isBlacklistTrue ? '#991b1b' : (isBlacklistFalse ? '#1f7a18' : 'var(--text-secondary)'),
+                                fontFamily:'var(--font-subheading)', fontSize:11.5, fontWeight:700,
+                              }}>
+                                <span style={{
+                                  width:6, height:6, borderRadius:'50%',
+                                  background: isBlacklistTrue ? '#dc2626' : (isBlacklistFalse ? '#3db832' : 'var(--text-tertiary)'),
+                                }}/>
+                                {display}
+                              </span>
+                            ) : (
+                              <span style={{
+                                fontFamily: r.mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
+                                fontSize: r.mono ? 13 : 13,
+                                color:'var(--text-primary)',
+                                lineHeight:1.4,
+                                wordBreak:'break-word',
+                              }}>{display}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>)}
+
+            </div>
+          </div>
+
+          {/* RIGHT — User card + Company card */}
+          <div style={{display:'flex', flexDirection:'column', gap:14, minWidth:0}}>
+
+            {/* ─── DIV #1 — USER ─────────────────────────────────────── */}
+            <div style={{background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--card-shadow)', padding:'14px 16px 16px'}}>
+              {/* User header */}
+              <div style={{display:'flex', alignItems:'center', gap:12, paddingBottom:14, borderBottom:'1px solid var(--card-border)', marginBottom:6}}>
+                <div className="tp-contact-av" style={{flexShrink:0, width:44, height:44, fontSize:15}}>
+                  {(userInfo.firstName[0] || '').toUpperCase()}{(userInfo.lastName[0] || '').toUpperCase()}
+                </div>
+                <div style={{minWidth:0, flex:1}}>
+                  <div className="tp-contact-name" style={{fontSize:14}}>{userInfo.firstName} {userInfo.lastName}</div>
+                  <div className="tp-contact-phone">{userInfo.phone}</div>
+                </div>
+              </div>
+
+              {/* User Info */}
+              <div className="tp-group-head" style={{cursor:'default', padding:'10px 2px 8px'}}>
+                <span className="tp-group-head-label">User Info</span>
+              </div>
+              <HomeEditField label="First Name" value={userInfo.firstName} onChange={v => updateUser({ firstName: v })}/>
+              <HomeEditField label="Last Name"  value={userInfo.lastName}  onChange={v => updateUser({ lastName: v })}/>
+              <HomeEditField label="Phone"      type="tel" value={userInfo.phone} onChange={v => updateUser({ phone: v })}/>
+              <HomeEditField label="Email"      type="email" value={userInfo.email} onChange={v => updateUser({ email: v })}/>
+              <HomeEditField label="Job Title"  value={userInfo.jobTitle}  onChange={v => updateUser({ jobTitle: v })}/>
+            </div>
+
+            {/* ─── DIV #2 — COMPANY ──────────────────────────────────── */}
+            <div style={{background:'var(--card-bg)', border:'1px solid var(--card-border)', borderRadius:'var(--radius-lg)', boxShadow:'var(--card-shadow)', padding:'14px 16px 14px'}}>
+              {/* Company header */}
+              <div style={{display:'flex', alignItems:'center', gap:12, paddingBottom:14, borderBottom:'1px solid var(--card-border)', marginBottom:2}}>
+                <div style={{
+                  flexShrink:0, width:44, height:44, borderRadius:10,
+                  background:'rgba(94,16,188,0.13)', color:'var(--accent)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                }}>
+                  <Icon name="grid" size={20}/>
+                </div>
+                <div style={{minWidth:0, flex:1}}>
+                  <div className="tp-contact-name" style={{fontSize:14}}>{companyInfo.name}</div>
+                  <div className="tp-contact-phone" style={{lineHeight:1.35}}>
+                    {companyInfo.address.street}
+                    {(companyInfo.address.city || companyInfo.address.state || companyInfo.address.postal) && <br/>}
+                    {[companyInfo.address.city, companyInfo.address.state].filter(Boolean).join(', ')}{companyInfo.address.postal ? ` ${companyInfo.address.postal}` : ''}
+                  </div>
+                </div>
+              </div>
+
+              {/* Company Info */}
+              <HomeCollapsible title="Company Info" expanded={expanded.company} onToggle={() => toggleExpanded('company')}>
+                <HomeEditField label="Dealer Name"   value={companyInfo.dealerName}   onChange={v => updateCompany({ dealerName: v })}/>
+                <HomeEditField label="Client Key"    value={companyInfo.clientKey}    onChange={v => updateCompany({ clientKey: v })}/>
+                <HomeEditField label="OEM Nameplate" value={companyInfo.oemNameplate} onChange={v => updateCompany({ oemNameplate: v })}/>
+                <HomeEditField label="Dealer Code"   value={companyInfo.dealerCode}   onChange={v => updateCompany({ dealerCode: v })}/>
+                <div style={{paddingTop:8, marginTop:6, borderTop:'1px dashed var(--card-border)'}}>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.07em', padding:'2px 2px 4px'}}>Address</div>
+                  <HomeEditField label="Street"      value={companyInfo.address.street} onChange={v => updateAddress({ street: v })}/>
+                  <HomeEditField label="City"        value={companyInfo.address.city}   onChange={v => updateAddress({ city: v })}/>
+                  <HomeEditField label="State"       value={companyInfo.address.state}  onChange={v => updateAddress({ state: v })}/>
+                  <HomeEditField label="Postal Code" value={companyInfo.address.postal} onChange={v => updateAddress({ postal: v })}/>
+                </div>
+              </HomeCollapsible>
+
+              <div style={{height:1, background:'var(--card-border)'}}/>
+
+              {/* Account Info */}
+              <HomeCollapsible title="Account Info" expanded={expanded.account} onToggle={() => toggleExpanded('account')}>
+                {/* Account Director mini-card */}
+                <div style={{
+                  display:'flex', alignItems:'flex-start', gap:10,
+                  padding:'10px 12px', borderRadius:10,
+                  background:'var(--input-bg)', border:'1px solid var(--card-border)',
+                  marginBottom:8,
+                }}>
+                  <div className="tp-contact-av" style={{flexShrink:0}}>
+                    {(companyInfo.accountDirector.firstName[0] || '').toUpperCase()}{(companyInfo.accountDirector.lastName[0] || '').toUpperCase()}
+                  </div>
+                  <div style={{minWidth:0, flex:1}}>
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:700, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2}}>Account Director</div>
+                    <div className="tp-contact-name">{companyInfo.accountDirector.firstName} {companyInfo.accountDirector.lastName}</div>
+                    <div className="tp-contact-phone">{companyInfo.accountDirector.phone}</div>
+                    <div className="tp-contact-phone" style={{marginTop:1}}>{companyInfo.accountDirector.email}</div>
+                  </div>
+                </div>
+                <HomeEditField label="Sales Tracking"   value={companyInfo.salesTrackingLine}   onChange={v => updateCompany({ salesTrackingLine: v })}/>
+                <HomeEditField label="Service Tracking" value={companyInfo.serviceTrackingLine} onChange={v => updateCompany({ serviceTrackingLine: v })}/>
+                <HomeEditField label="Recall Tracking"  value={companyInfo.recallTrackingLine}  onChange={v => updateCompany({ recallTrackingLine: v })}/>
+                <HomeEditField label="Email Domain"     value={companyInfo.emailDomain}         onChange={v => updateCompany({ emailDomain: v })}/>
+                <HomeEditField label="Website URL"      value={companyInfo.websiteUrl}          onChange={v => updateCompany({ websiteUrl: v })}/>
+                <HomeEditField label="Sales Phone"      value={companyInfo.salesPhoneLine}      onChange={v => updateCompany({ salesPhoneLine: v })}/>
+                <HomeEditField label="Service Phone"    value={companyInfo.servicePhoneLine}    onChange={v => updateCompany({ servicePhoneLine: v })}/>
+              </HomeCollapsible>
+
+              <div style={{height:1, background:'var(--card-border)'}}/>
+
+              {/* Technical Info */}
+              <HomeCollapsible title="Technical Info" expanded={expanded.technical} onToggle={() => toggleExpanded('technical')}>
+                <HomeEditField label="ADF XML Email" type="email" value={companyInfo.adfXmlEmail} onChange={v => updateCompany({ adfXmlEmail: v })}/>
+                <HomeEditField label="CRM"           value={companyInfo.crm}         onChange={v => updateCompany({ crm: v })}/>
+                <HomeEditField label="DMS Provider"  value={companyInfo.dmsProvider} onChange={v => updateCompany({ dmsProvider: v })}/>
+                <HomeMultiSelect label="Associated Vendors" options={HOME_VENDOR_OPTIONS}
+                  values={companyInfo.associatedVendors}
+                  onChange={vs => updateCompany({ associatedVendors: vs })}/>
+              </HomeCollapsible>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      {/* Date range picker (same component TrafficGauge uses) */}
+      {datePickerOpen && (
+        <>
+          <div style={{position:'fixed', inset:0, zIndex:1150}} onClick={() => setDatePickerOpen(false)}/>
+          <DateRangeDropdown
+            pos={datePickerPos}
+            filter={dateFilter}
+            onClose={() => setDatePickerOpen(false)}
+            onApply={(updated) => setDateFilter(updated)}
+          />
+        </>
+      )}
+
+      {selectedEvent && (
+        <HomeEventModal item={selectedEvent} onClose={() => setSelectedEvent(null)}/>
+      )}
+    </div>
+  );
+};
+
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
 // TrafficGauge sub-screens (its internal app routes — Library/Dashboards, Report
 // Builder, Data Sources, Starred). The other top-level Convergence sections
@@ -9380,6 +10731,7 @@ const Sidebar = ({ screen, navigate, sidebarMode, dealer, setDealer, onOpenStyle
 
   // Top-level Convergence portal nav items
   const topItems = [
+    { id:'home',        icon:'home',       label:'Home' },
     { id:'pipelines',   icon:'database',   label:'Pipelines' },
     { id:'touchpoints', icon:'star',       label:'TouchPoints' },
   ];
@@ -9522,8 +10874,8 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 }/*EDITMODE-END*/;
 
 const App = () => {
-  // Default landing screen: TouchPoints (the Convergence customer view).
-  const [screen, setScreen] = useState('touchpoints');
+  // Default landing screen: Home (snapshot dashboard across all data sources).
+  const [screen, setScreen] = useState('home');
   const [activeDashboard, setActiveDashboard] = useState(null);
   const [savedReports, setSavedReports] = useState([]);
   const [userDashboards, setUserDashboards] = useState([]);
@@ -9645,6 +10997,7 @@ const App = () => {
   const renderScreen = () => {
     switch (screen) {
       // ── Convergence top-level sections ──
+      case 'home':        return <HomeScreen tweaks={tweaks}/>;
       case 'pipelines':   return <PipelinesScreen navigate={navigate} enabledIntegrations={enabledIntegrations} onEnableIntegration={handleEnableIntegration}/>;
       case 'portfolio':   return <PortfolioScreen/>;
       case 'touchpoints': return <TouchPointsScreen/>;
