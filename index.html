@@ -4637,6 +4637,7 @@ const TouchPointsScreen = () => {
   const [contactPropsMap, setContactPropsMap] = useState(INITIAL_CONTACT_PROPS);
   const [associationsMap, setAssociationsMap] = useState(INITIAL_ASSOCIATIONS);
   const [showAddContact, setShowAddContact]   = useState(false);
+  const [assocSearch, setAssocSearch]         = useState('');
   const [editing, setEditing] = useState({ contactId:null, field:null }); // field: 'email' | 'dob' | null
   const [emailDraft, setEmailDraft] = useState('');
 
@@ -5394,7 +5395,8 @@ const TouchPointsScreen = () => {
                     title="Associate contact"
                     onClick={e => {
                       e.stopPropagation();
-                      setShowAddContact(v => !v);
+                      setAssocSearch('');
+                      setShowAddContact(true);
                       setCollapsed(s => ({...s, associated: false}));
                     }}
                   >
@@ -5542,33 +5544,9 @@ const TouchPointsScreen = () => {
                     );
                   })}
 
-                  {customerAssociations.length === 0 && !showAddContact && (
+                  {customerAssociations.length === 0 && (
                     <div style={{padding:'16px 14px', textAlign:'center', opacity:0.4, border:'1px dashed var(--card-border)', borderRadius:10}}>
                       <div style={{fontSize:11, fontFamily:'var(--font-subheading)'}}>No associated contacts</div>
-                    </div>
-                  )}
-
-                  {showAddContact && (
-                    <div className="tp-add-vehicle-form tp-contact-card" style={{padding:'12px 14px 14px'}}>
-                      <div className="tp-avf-group">
-                        <label className="tp-avf-label">Choose a contact to associate</label>
-                        <div className="tp-acf-options">
-                          {candidateContacts.length === 0 ? (
-                            <div className="tp-acf-empty">All other contacts are already associated.</div>
-                          ) : candidateContacts.map(c => (
-                            <div className="tp-acf-option" key={c.id} onClick={() => associateContact(c.id)}>
-                              <div className="tp-contact-av">{c.initials}</div>
-                              <div style={{minWidth:0, flex:1}}>
-                                <div className="tp-contact-name">{c.name}</div>
-                                <div className="tp-contact-phone">{c.phone}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="tp-avf-actions">
-                        <button className="tp-avf-btn-cancel" onClick={() => setShowAddContact(false)}>Cancel</button>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -5592,6 +5570,20 @@ const TouchPointsScreen = () => {
             onClose={closeDobPicker}
           />
         </div>
+      )}
+
+      {/* Associate Contact Modal */}
+      {showAddContact && (
+        <AssociateContactModal
+          candidates={candidateContacts}
+          assocSearch={assocSearch}
+          setAssocSearch={setAssocSearch}
+          onSelect={(id) => {
+            associateContact(id);
+            setShowAddContact(false);
+          }}
+          onClose={() => setShowAddContact(false)}
+        />
       )}
 
       {/* New Contact Modal */}
@@ -5942,6 +5934,134 @@ const NewContactModal = ({ onClose, lookupCustomerByPhone, contactPropsMap, vehi
               Save Contact
             </button>
           )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── ASSOCIATE CONTACT MODAL ─────────────────────────────────────────────────
+const AssociateContactModal = ({ candidates, assocSearch, setAssocSearch, onSelect, onClose }) => {
+  const inputRef = React.useRef(null);
+  React.useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
+
+  const q = assocSearch.trim().toLowerCase();
+  const filtered = !q ? candidates : candidates.filter(c => {
+    const nameMatch  = c.name.toLowerCase().includes(q);
+    const phoneMatch = c.phone.replace(/\D/g,'').includes(q.replace(/\D/g,'')) || c.phone.toLowerCase().includes(q);
+    return nameMatch || phoneMatch;
+  });
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="nc-modal" style={{width:460, maxHeight:'80vh'}} onClick={e => e.stopPropagation()}>
+        <div className="nc-header">
+          <div className="nc-title">Associate a Contact</div>
+          <button className="nc-close" onClick={onClose} title="Close">
+            <Icon name="close" size={13}/>
+          </button>
+        </div>
+
+        {/* Search input */}
+        <div style={{padding:'12px 16px', borderBottom:'1px solid var(--card-border)', flexShrink:0}}>
+          <div style={{position:'relative'}}>
+            <span style={{
+              position:'absolute', left:10, top:'50%', transform:'translateY(-50%)',
+              color:'var(--text-tertiary)', pointerEvents:'none', display:'flex', alignItems:'center'
+            }}>
+              <Icon name="search" size={13}/>
+            </span>
+            <input
+              ref={inputRef}
+              className="nc-input"
+              style={{paddingLeft:32}}
+              placeholder="Search by name or phone number…"
+              value={assocSearch}
+              onChange={e => setAssocSearch(e.target.value)}
+            />
+          </div>
+          <div style={{
+            marginTop:6, fontSize:11, fontFamily:'var(--font-subheading)',
+            color:'var(--text-tertiary)'
+          }}>
+            {candidates.length === 0
+              ? 'All contacts are already associated.'
+              : filtered.length === 0 && q
+                ? `No contacts match "${assocSearch}"`
+                : `${filtered.length} contact${filtered.length !== 1 ? 's' : ''} found`}
+          </div>
+        </div>
+
+        {/* Results list */}
+        <div style={{overflowY:'auto', flex:1, padding:'8px 8px'}}>
+          {filtered.length === 0 && candidates.length > 0 && (
+            <div style={{
+              padding:'40px 20px', textAlign:'center',
+              color:'var(--text-tertiary)', fontFamily:'var(--font-subheading)', fontSize:12
+            }}>
+              No contacts match your search.
+            </div>
+          )}
+          {filtered.map(c => (
+            <div
+              key={c.id}
+              onClick={() => onSelect(c.id)}
+              style={{
+                display:'flex', alignItems:'center', gap:12,
+                padding:'10px 12px', borderRadius:10, cursor:'pointer',
+                transition:'background 0.10s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-light)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {/* Avatar */}
+              <div style={{
+                width:38, height:38, borderRadius:'50%',
+                background:'var(--accent)', color:'#fff',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontFamily:'var(--font-display)', fontWeight:700, fontSize:13,
+                flexShrink:0,
+              }}>
+                {c.initials}
+              </div>
+              {/* Info */}
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{
+                  fontFamily:'var(--font-subheading)', fontWeight:600,
+                  fontSize:13, color:'var(--text-primary)', lineHeight:1.2
+                }}>
+                  {/* Highlight matching portion */}
+                  {q ? (() => {
+                    const idx = c.name.toLowerCase().indexOf(q);
+                    if (idx === -1) return c.name;
+                    return (
+                      <>
+                        {c.name.slice(0, idx)}
+                        <mark style={{background:'var(--accent-light)', color:'var(--accent)', borderRadius:3, padding:'0 1px'}}>
+                          {c.name.slice(idx, idx + q.length)}
+                        </mark>
+                        {c.name.slice(idx + q.length)}
+                      </>
+                    );
+                  })() : c.name}
+                </div>
+                <div style={{
+                  fontFamily:'monospace', fontSize:11.5,
+                  color:'var(--text-secondary)', marginTop:2, letterSpacing:'0.02em'
+                }}>
+                  {c.phone}
+                </div>
+              </div>
+              {/* Arrow cue */}
+              <span style={{color:'var(--text-tertiary)', flexShrink:0}}>
+                <Icon name="chevronRight" size={14}/>
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="nc-footer" style={{justifyContent:'flex-start'}}>
+          <button className="nc-btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </div>
     </div>
