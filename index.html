@@ -11341,7 +11341,8 @@ const HomeScreen = ({ tweaks }) => {
               </div>
 
               {/* RIGHT — Record-by-record preview */}
-              <div style={{padding:'18px 20px', overflow:'hidden', display:'flex', flexDirection:'column', gap:12, minHeight:0}}>
+              <div style={{padding:'18px 20px 0 20px', overflow:'hidden', display:'flex', flexDirection:'column', gap:12, minHeight:0}}>
+                {/* Header — fixed, does not scroll */}
                 <div style={{flexShrink:0}}>
                   {(() => {
                     const previewCount = Math.min(effectiveRows.length, 10);
@@ -11362,7 +11363,7 @@ const HomeScreen = ({ tweaks }) => {
                           </div>
                         </div>
                         <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.45, marginTop:2}}>
-                          Previewing the first {previewCount} {previewCount === 1 ? 'record' : 'records'} with {visibleCols.length} {visibleCols.length === 1 ? 'column' : 'columns'} mapped. Scroll horizontally inside a record to see more columns.
+                          Previewing the first {previewCount} {previewCount === 1 ? 'record' : 'records'} with {visibleCols.length} {visibleCols.length === 1 ? 'column' : 'columns'} mapped.
                         </div>
                       </>
                     );
@@ -11381,10 +11382,23 @@ const HomeScreen = ({ tweaks }) => {
                   </div>
                 )}
 
-                {/* Records list — vertical scroll container */}
-                <div style={{flex:1, minHeight:0, overflowY:'auto', display:'flex', flexDirection:'column', gap:8}}>
+                {/*
+                  SINGLE shared scroll region — one horizontal scrollbar at the bottom
+                  covers the entire pane; one vertical scrollbar to page through records.
+                  Each record row has NO individual scroll; they all sit inside one inner
+                  container whose natural width sets the unified scroll width.
+                  Columns use a fixed px width (COL_W) so headers align perfectly across
+                  every record. The LAST column breaks the rule: it has no max-width and
+                  no overflow clipping so long values display without truncation.
+                */}
+                <div style={{flex:1, minHeight:0, overflow:'auto', paddingBottom:18}}>
                   {(() => {
-                    // Columns shown in each record card: phone column + included columns, in file order.
+                    const COL_W          = 164;  // px — all non-last columns use this width
+                    const COL_GAP        = 16;   // px — gap between columns
+                    const RECORD_LABEL_W = 112;  // px — "Record N / Row N" stub
+                    const DIVIDER_W      = 1;    // px — vertical divider after record label
+                    const DIVIDER_GAP    = 14;   // px — space between divider and first col
+
                     const previewCols = effectiveHeaders
                       .map((h, idx) => ({ header:h, idx }))
                       .filter(c => c.header === csvPhoneCol || csvIncludedCols[c.header]);
@@ -11416,80 +11430,99 @@ const HomeScreen = ({ tweaks }) => {
                       );
                     }
 
-                    const truncate = (s, n = 32) => {
+                    // Compute the minimum inner width so all records are identical in width,
+                    // giving the outer overflow:auto one consistent scroll track to follow.
+                    const innerMinWidth =
+                      28 +                  // left+right card padding (14+14)
+                      RECORD_LABEL_W +
+                      DIVIDER_W +
+                      DIVIDER_GAP +
+                      previewCols.reduce((sum, _, i) => {
+                        const isLast = i === previewCols.length - 1;
+                        return sum + COL_W + (isLast ? 0 : COL_GAP);
+                      }, 0);
+
+                    const truncate = (s, n) => {
                       if (s == null) return '';
                       const str = String(s);
                       return str.length > n ? str.slice(0, n - 1) + '…' : str;
                     };
 
-                    return previewRows.map((row, rIdx) => (
-                      <div key={rIdx} style={{
-                        flexShrink:0,
-                        border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
-                        background:'var(--input-bg)',
-                        overflowX:'auto',
-                      }}>
-                        <div style={{
-                          display:'flex', alignItems:'stretch', gap:0,
-                          padding:'10px 14px',
-                          minWidth:'min-content',
-                        }}>
-                          {/* Record label */}
-                          <div style={{
-                            flexShrink:0, alignSelf:'center',
-                            display:'flex', flexDirection:'column',
-                            paddingRight:14, marginRight:14,
-                            borderRight:'1px solid var(--card-border)',
-                            minWidth:100,
+                    return (
+                      <div style={{minWidth: innerMinWidth, display:'flex', flexDirection:'column', gap:8}}>
+                        {previewRows.map((row, rIdx) => (
+                          <div key={rIdx} style={{
+                            display:'flex', alignItems:'flex-start',
+                            border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
+                            background:'var(--input-bg)',
+                            padding:'10px 14px',
                           }}>
-                            <span style={{fontFamily:'var(--font-display)', fontSize:13, fontWeight:700, color:'var(--text-primary)'}}>Record {rIdx + 1}</span>
-                            <span style={{fontFamily:'var(--font-subheading)', fontSize:10, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Row {rIdx + 1}</span>
-                          </div>
-                          {previewCols.map((col, cIdx) => {
-                            const isPhone = col.header === csvPhoneCol;
-                            const raw     = row[col.idx];
-                            const value   = (raw === null || raw === undefined) ? '' : String(raw).trim();
-                            return (
-                              <div key={cIdx} style={{
-                                flexShrink:0,
-                                display:'flex', flexDirection:'column', gap:3,
-                                minWidth:130, maxWidth:220,
-                                paddingRight:18,
-                              }}>
-                                <span style={{
-                                  display:'inline-flex', alignSelf:'flex-start', alignItems:'center',
-                                  padding:'2px 7px', borderRadius:4,
-                                  background: isPhone ? 'var(--accent)' : 'rgba(94,16,188,0.10)',
-                                  color: isPhone ? '#ffffff' : 'var(--accent)',
-                                  fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
-                                  textTransform:'uppercase', letterSpacing:'0.07em',
-                                  whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-                                  maxWidth:'100%',
-                                }} title={col.header}>{truncate(col.header, 22)}</span>
-                                <span
-                                  title={value}
-                                  style={{
-                                    fontFamily: isPhone ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
-                                    fontSize: 12.5,
-                                    color: value === '' ? 'var(--text-tertiary)' : 'var(--text-primary)',
-                                    lineHeight:1.4,
-                                    whiteSpace:'nowrap',
-                                    overflow:'hidden', textOverflow:'ellipsis',
-                                    fontStyle: value === '' ? 'italic' : 'normal',
+                            {/* Fixed-width record label */}
+                            <div style={{
+                              flexShrink:0, width: RECORD_LABEL_W, alignSelf:'center',
+                              display:'flex', flexDirection:'column',
+                              paddingRight: DIVIDER_GAP, marginRight: DIVIDER_GAP,
+                              borderRight:'1px solid var(--card-border)',
+                            }}>
+                              <span style={{fontFamily:'var(--font-display)', fontSize:13, fontWeight:700, color:'var(--text-primary)'}}>Record {rIdx + 1}</span>
+                              <span style={{fontFamily:'var(--font-subheading)', fontSize:10, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Row {rIdx + 1}</span>
+                            </div>
+
+                            {/* Column fields — fixed-width on all except the last */}
+                            <div style={{display:'flex', alignItems:'flex-start', gap: COL_GAP}}>
+                              {previewCols.map((col, cIdx) => {
+                                const isPhone = col.header === csvPhoneCol;
+                                const isLast  = cIdx === previewCols.length - 1;
+                                const raw     = row[col.idx];
+                                const value   = (raw === null || raw === undefined) ? '' : String(raw).trim();
+
+                                return (
+                                  <div key={cIdx} style={{
+                                    flexShrink: 0,
+                                    // Last column grows freely — no clipping on either header or value.
+                                    // All others are fixed COL_W so headers line up perfectly row-to-row.
+                                    width: isLast ? undefined : COL_W,
+                                    flex: isLast ? '0 0 auto' : '0 0 ' + COL_W + 'px',
+                                    overflow: isLast ? 'visible' : 'hidden',
+                                    display:'flex', flexDirection:'column', gap:3,
                                   }}>
-                                  {value === '' ? '—' : truncate(value, 32)}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                                    <span style={{
+                                      display:'block',
+                                      padding:'2px 7px', borderRadius:4,
+                                      background: isPhone ? 'var(--accent)' : 'rgba(94,16,188,0.10)',
+                                      color: isPhone ? '#ffffff' : 'var(--accent)',
+                                      fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                                      textTransform:'uppercase', letterSpacing:'0.07em',
+                                      whiteSpace:'nowrap',
+                                      overflow: isLast ? 'visible' : 'hidden',
+                                      textOverflow: isLast ? 'unset' : 'ellipsis',
+                                    }} title={col.header}>{col.header}</span>
+
+                                    <span title={value} style={{
+                                      display:'block',
+                                      fontFamily: isPhone ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
+                                      fontSize: 12.5,
+                                      color: value === '' ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                      lineHeight:1.4,
+                                      fontStyle: value === '' ? 'italic' : 'normal',
+                                      whiteSpace: isLast ? 'normal' : 'nowrap',
+                                      overflow: isLast ? 'visible' : 'hidden',
+                                      textOverflow: isLast ? 'unset' : 'ellipsis',
+                                    }}>
+                                      {value === '' ? '—' : value}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ));
+                    );
                   })()}
                 </div>
               </div>
             </div>
-
             {/* Modal footer */}
             <div style={{
               display:'flex', alignItems:'center', justifyContent:'space-between', gap:14,
