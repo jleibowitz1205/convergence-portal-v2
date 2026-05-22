@@ -5943,10 +5943,13 @@ const AssociateContactModal = ({ candidates, onSelect, onClose }) => {
   React.useEffect(() => { inputRef.current && inputRef.current.focus(); }, []);
 
   const q = query.trim().toLowerCase();
+  const qDigits = q.replace(/\D/g, '');
   const filtered = !q ? candidates : candidates.filter(c => {
-    const nameMatch  = c.name.toLowerCase().includes(q);
-    const phoneMatch = c.phone.replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
-                       c.phone.toLowerCase().includes(q);
+    const nameMatch = c.name.toLowerCase().includes(q);
+    // Phone match only fires when the query has actual digits — otherwise
+    // every contact would match because ''.includes('') is true in JS.
+    const phoneDigits = c.phone.replace(/\D/g, '');
+    const phoneMatch = qDigits.length > 0 && phoneDigits.includes(qDigits);
     return nameMatch || phoneMatch;
   });
 
