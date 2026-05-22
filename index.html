@@ -2257,6 +2257,171 @@
     font-family: monospace;
   }
 
+  /* TouchPoint type filter (middle column header) */
+  .tp-filter-bar {
+    flex-shrink: 0;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--card-border);
+    background: var(--input-bg);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .tp-filter-label {
+    font-family: var(--font-subheading);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-right: 4px;
+  }
+  .tp-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    font-family: var(--font-subheading);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s;
+    user-select: none;
+  }
+  .tp-filter-chip:hover {
+    border-color: var(--text-tertiary);
+    color: var(--text-primary);
+  }
+  .tp-filter-chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .tp-filter-chip.active:hover {
+    background: var(--accent-dark);
+    border-color: var(--accent-dark);
+  }
+  .tp-filter-chip-count {
+    font-size: 10px;
+    font-weight: 700;
+    opacity: 0.7;
+  }
+  .tp-filter-chip.active .tp-filter-chip-count { opacity: 0.85; }
+  .tp-filter-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+  }
+  .tp-filter-action-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    font-family: var(--font-subheading);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    transition: color 0.12s, background 0.12s;
+  }
+  .tp-filter-action-btn:hover { color: var(--accent); background: var(--accent-light); }
+
+  /* Contact info card (right column, above activity summary) */
+  .tp-contact-summary {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .tp-contact-summary-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px dashed var(--card-border);
+  }
+  .tp-contact-summary-av {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .tp-contact-summary-name {
+    font-family: var(--font-subheading);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+  .tp-contact-summary-phone {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: monospace;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+  }
+  .tp-contact-summary-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .tp-contact-summary-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .tp-contact-summary-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .tp-contact-summary-row-icon {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .tp-contact-summary-row-lbl {
+    font-family: var(--font-subheading);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+    width: 56px;
+    margin-top: 2px;
+  }
+  .tp-contact-summary-row-val {
+    color: var(--text-primary);
+    font-family: var(--font-subheading);
+    font-size: 12px;
+    word-break: break-word;
+    flex: 1;
+  }
+  .tp-contact-summary-row-val.empty {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+
   /* Timeline */
   .tp-timeline { overflow-y: auto; flex:1; padding: 20px 24px; }
   .tp-event { display: flex; gap: 14px; position: relative; }
@@ -4295,6 +4460,23 @@ const TouchPointsScreen = () => {
   // New contact modal
   const [showNewContact, setShowNewContact] = useState(false);
 
+  // ── TouchPoint type filter (middle column) ───────────────────────────
+  // All types start checked. Order matters for display.
+  const TP_FILTER_TYPES = ['sales','service_txn','service_appt','appointment','followup','phone_call','link_click','text_inbound','text_outbound'];
+  const [typeFilter, setTypeFilter] = useState(() => {
+    const s = {};
+    TP_FILTER_TYPES.forEach(t => { s[t] = true; });
+    return s;
+  });
+  const toggleTypeFilter = (t) => setTypeFilter(prev => ({ ...prev, [t]: !prev[t] }));
+  const setAllFilters = (val) => {
+    setTypeFilter(() => {
+      const s = {};
+      TP_FILTER_TYPES.forEach(t => { s[t] = val; });
+      return s;
+    });
+  };
+
   // Associated-contacts state
   const [contactPropsMap, setContactPropsMap] = useState(INITIAL_CONTACT_PROPS);
   const [associationsMap, setAssociationsMap] = useState(INITIAL_ASSOCIATIONS);
@@ -4450,6 +4632,10 @@ const TouchPointsScreen = () => {
   );
   const selectedCustomer = customers.find(c => c.id === selectedId) || null;
   const selectedTimeline = selectedCustomer ? selectedCustomer.timeline : [];
+  // Timeline shown in the middle column — respects the type filter chips.
+  // Right-column counts/sums continue to use selectedTimeline so the totals
+  // reflect the full contact activity regardless of which chips are active.
+  const displayedTimeline = selectedTimeline.filter(e => typeFilter[e.type] !== false);
 
   const countFor = (t) => selectedTimeline.filter(e => e.type === t).length;
   const groupCount = (types) => selectedTimeline.filter(e => types.indexOf(e.type) !== -1).length;
@@ -4572,21 +4758,33 @@ const TouchPointsScreen = () => {
         {/* MIDDLE 50% - Timeline */}
         <div className="tp-middle">
           {selectedCustomer && (
-            <div className="tp-header">
-              <div className="tp-customer-av" style={{width:38,height:38,fontSize:14}}>{selectedCustomer.initials}</div>
-              <div>
-                <div className="tp-header-name">{selectedCustomer.name}</div>
-                <div className="tp-header-phone">{selectedCustomer.phone}</div>
-              </div>
-              <div style={{marginLeft:'auto', display:'flex', gap:8}}>
-                {selectedCustomer.tags.map(t => (
-                  <span key={t.label} className={tagChipClass(t.color)}>{t.label}</span>
-                ))}
+            <div className="tp-filter-bar">
+              <span className="tp-filter-label">Show</span>
+              {TP_FILTER_TYPES.map(t => {
+                const tm = TP_TYPE[t];
+                const active = !!typeFilter[t];
+                const count = countFor(t);
+                return (
+                  <button
+                    key={t}
+                    className={`tp-filter-chip${active ? ' active' : ''}`}
+                    onClick={() => toggleTypeFilter(t)}
+                    title={active ? `Hide ${tm.label}` : `Show ${tm.label}`}
+                  >
+                    <Icon name={tm.icon} size={11}/>
+                    <span>{tm.label}</span>
+                    <span className="tp-filter-chip-count">{count}</span>
+                  </button>
+                );
+              })}
+              <div className="tp-filter-actions">
+                <button className="tp-filter-action-btn" onClick={() => setAllFilters(true)}>All</button>
+                <button className="tp-filter-action-btn" onClick={() => setAllFilters(false)}>None</button>
               </div>
             </div>
           )}
           <div className="tp-timeline">
-            {selectedTimeline.length ? selectedTimeline.map((evt, idx) => {
+            {displayedTimeline.length ? displayedTimeline.map((evt, idx) => {
               const tm = TP_TYPE[evt.type] || TP_TYPE['appointment'];
               return (
                 <div key={evt.id} className="tp-event">
@@ -4594,7 +4792,7 @@ const TouchPointsScreen = () => {
                     <div className="tp-spine-bubble" style={{background:tm.bg}}>
                       <span style={{color:tm.color}}><Icon name={tm.icon} size={17}/></span>
                     </div>
-                    {idx < selectedTimeline.length - 1 && <div className="tp-spine-line"></div>}
+                    {idx < displayedTimeline.length - 1 && <div className="tp-spine-line"></div>}
                   </div>
                   <div className="tp-event-card">
                     <div className="tp-event-meta">
@@ -4619,7 +4817,11 @@ const TouchPointsScreen = () => {
               );
             }) : (
               <div style={{textAlign:'center', padding:'80px 24px', opacity:0.35}}>
-                <div style={{fontSize:13, fontFamily:'var(--font-subheading)'}}>No touchpoints recorded</div>
+                <div style={{fontSize:13, fontFamily:'var(--font-subheading)'}}>
+                  {selectedTimeline.length === 0
+                    ? 'No touchpoints recorded'
+                    : 'No touchpoints match the selected filters'}
+                </div>
               </div>
             )}
           </div>
@@ -4631,6 +4833,63 @@ const TouchPointsScreen = () => {
             <div className="tp-summary-label">Activity Summary</div>
           </div>
           <div className="tp-summary-scroll">
+            {/* Contact Info card (Vehicles already have their own card below) */}
+            {selectedCustomer && (() => {
+              const props = getContactProps(selectedCustomer.id);
+              const dobDisplay = props.dob ? (() => {
+                const [y, m, d] = props.dob.split('-').map(Number);
+                if (!y || !m || !d) return props.dob;
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                return `${months[m-1]} ${String(d).padStart(2,'0')}, ${y}`;
+              })() : '';
+              const locParts = [selectedCustomer.city, selectedCustomer.state].filter(Boolean).join(', ');
+              const locLine  = [locParts, selectedCustomer.postalCode].filter(Boolean).join(' ');
+              return (
+                <div className="tp-contact-summary">
+                  <div className="tp-contact-summary-head">
+                    <div className="tp-contact-summary-av">{selectedCustomer.initials}</div>
+                    <div style={{minWidth:0, flex:1}}>
+                      <div className="tp-contact-summary-name">{selectedCustomer.name}</div>
+                      <div className="tp-contact-summary-phone">{selectedCustomer.phone}</div>
+                    </div>
+                  </div>
+                  {selectedCustomer.tags && selectedCustomer.tags.length > 0 && (
+                    <div className="tp-contact-summary-tags">
+                      {selectedCustomer.tags.map(t => (
+                        <span key={t.label} className={tagChipClass(t.color)}>{t.label}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="tp-contact-summary-rows">
+                    <div className="tp-contact-summary-row">
+                      <span className="tp-contact-summary-row-lbl">Email</span>
+                      <span className={`tp-contact-summary-row-val${props.email ? '' : ' empty'}`}>
+                        {props.email || 'Not on file'}
+                      </span>
+                    </div>
+                    <div className="tp-contact-summary-row">
+                      <span className="tp-contact-summary-row-lbl">DOB</span>
+                      <span className={`tp-contact-summary-row-val${dobDisplay ? '' : ' empty'}`}>
+                        {dobDisplay || 'Not on file'}
+                      </span>
+                    </div>
+                    <div className="tp-contact-summary-row">
+                      <span className="tp-contact-summary-row-lbl">Address</span>
+                      <span className={`tp-contact-summary-row-val${selectedCustomer.address ? '' : ' empty'}`}>
+                        {selectedCustomer.address || 'Not on file'}
+                      </span>
+                    </div>
+                    {locLine && (
+                      <div className="tp-contact-summary-row">
+                        <span className="tp-contact-summary-row-lbl">Location</span>
+                        <span className="tp-contact-summary-row-val">{locLine}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="tp-summary-card">
               <div className="tp-summary-total">
                 <span className="tp-summary-total-label">Total TouchPoints</span>
