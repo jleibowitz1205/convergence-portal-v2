@@ -11095,7 +11095,7 @@ const HomeScreen = ({ tweaks }) => {
             position:'fixed', inset:0, zIndex:200,
             background:'rgba(0,0,0,0.40)', backdropFilter:'blur(4px)',
             display:'flex', alignItems:'center', justifyContent:'center',
-            padding:'24px',
+            padding:'16px',
             animation:'pl-fade-in .15s ease',
           }}>
           <div
@@ -11104,8 +11104,9 @@ const HomeScreen = ({ tweaks }) => {
               background:'var(--card-bg)',
               border:'1px solid var(--card-border)',
               borderRadius:'var(--radius-lg)',
-              width:'min(1080px, 100%)',
-              maxHeight:'calc(100vh - 48px)',
+              width:'min(1480px, 100%)',
+              height:'calc(100vh - 32px)',
+              maxHeight:'calc(100vh - 32px)',
               boxShadow:'0 24px 48px rgba(0,0,0,0.22)',
               display:'flex', flexDirection:'column',
               animation:'pl-slide-up .2s ease',
@@ -11152,7 +11153,7 @@ const HomeScreen = ({ tweaks }) => {
             {/* Modal body — two panes */}
             <div style={{
               flex:1, minHeight:0,
-              display:'grid', gridTemplateColumns:'minmax(0, 1fr) minmax(0, 1.1fr)',
+              display:'grid', gridTemplateColumns:'minmax(320px, 420px) minmax(0, 1fr)',
               overflow:'hidden',
             }}>
               {/* LEFT — Mapping */}
@@ -11241,7 +11242,58 @@ const HomeScreen = ({ tweaks }) => {
                 {/* Optional fields to include */}
                 {effectiveHeaders.length > 0 && (
                   <div>
-                    <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:6}}>Additional Columns to Include (optional)</div>
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:6, flexWrap:'wrap'}}>
+                      <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em'}}>Additional Columns to Include (optional)</div>
+                      {(() => {
+                        const optional = effectiveHeaders.filter(h => h !== csvPhoneCol);
+                        const allOn  = optional.length > 0 && optional.every(h => csvIncludedCols[h]);
+                        const allOff = optional.every(h => !csvIncludedCols[h]);
+                        return (
+                          <div style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                            <button
+                              onClick={() => setCsvIncludedCols(prev => {
+                                const next = { ...prev };
+                                optional.forEach(h => { next[h] = true; });
+                                return next;
+                              })}
+                              disabled={optional.length === 0 || allOn}
+                              style={{
+                                display:'inline-flex', alignItems:'center', gap:5,
+                                padding:'4px 10px', borderRadius:999,
+                                background:'transparent',
+                                border:'1px solid ' + (optional.length === 0 || allOn ? 'var(--card-border)' : 'rgba(94,16,188,0.35)'),
+                                color: optional.length === 0 || allOn ? 'var(--text-tertiary)' : 'var(--accent)',
+                                fontFamily:'var(--font-subheading)', fontSize:10.5, fontWeight:700,
+                                textTransform:'uppercase', letterSpacing:'0.05em',
+                                cursor: optional.length === 0 || allOn ? 'not-allowed' : 'pointer',
+                                transition:'all .15s',
+                              }}>
+                              <Icon name="check" size={9}/> Select All
+                            </button>
+                            <button
+                              onClick={() => setCsvIncludedCols(prev => {
+                                const next = { ...prev };
+                                optional.forEach(h => { next[h] = false; });
+                                return next;
+                              })}
+                              disabled={optional.length === 0 || allOff}
+                              style={{
+                                display:'inline-flex', alignItems:'center', gap:5,
+                                padding:'4px 10px', borderRadius:999,
+                                background:'transparent',
+                                border:'1px solid ' + (optional.length === 0 || allOff ? 'var(--card-border)' : 'var(--card-border)'),
+                                color: optional.length === 0 || allOff ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                                fontFamily:'var(--font-subheading)', fontSize:10.5, fontWeight:700,
+                                textTransform:'uppercase', letterSpacing:'0.05em',
+                                cursor: optional.length === 0 || allOff ? 'not-allowed' : 'pointer',
+                                transition:'all .15s',
+                              }}>
+                              <Icon name="close" size={9}/> Hide All
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
                     <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.45, marginBottom:10}}>
                       Selected columns will be passed through into the results file alongside the lookup data.
                     </div>
@@ -11288,17 +11340,38 @@ const HomeScreen = ({ tweaks }) => {
                 )}
               </div>
 
-              {/* RIGHT — Detected columns preview */}
-              <div style={{padding:'18px 20px', overflowY:'auto', display:'flex', flexDirection:'column', gap:14}}>
-                <div>
-                  <div style={{fontFamily:'var(--font-display)', fontSize:13.5, fontWeight:700, color:'var(--text-primary)', marginBottom:2}}>Detected Columns</div>
-                  <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.45}}>
-                    {effectiveHeaders.length} {effectiveHeaders.length === 1 ? 'column' : 'columns'} detected in your file. Sample values from the first few rows are shown below.
-                  </div>
+              {/* RIGHT — Record-by-record preview */}
+              <div style={{padding:'18px 20px', overflow:'hidden', display:'flex', flexDirection:'column', gap:12, minHeight:0}}>
+                <div style={{flexShrink:0}}>
+                  {(() => {
+                    const previewCount = Math.min(effectiveRows.length, 10);
+                    const visibleCols  = effectiveHeaders.filter(h => h === csvPhoneCol || csvIncludedCols[h]);
+                    return (
+                      <>
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap'}}>
+                          <div style={{fontFamily:'var(--font-display)', fontSize:13.5, fontWeight:700, color:'var(--text-primary)'}}>
+                            {effectiveRows.length.toLocaleString()} {effectiveRows.length === 1 ? 'record' : 'records'} will be created
+                          </div>
+                          <div style={{display:'inline-flex', alignItems:'center', gap:10, fontFamily:'var(--font-subheading)', fontSize:11, color:'var(--text-tertiary)'}}>
+                            <span style={{display:'inline-flex', alignItems:'center', gap:5}}>
+                              <span style={{width:8, height:8, borderRadius:2, background:'var(--accent)'}}/> Phone
+                            </span>
+                            <span style={{display:'inline-flex', alignItems:'center', gap:5}}>
+                              <span style={{width:8, height:8, borderRadius:2, background:'rgba(94,16,188,0.15)', border:'1px solid rgba(94,16,188,0.30)'}}/> Included
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.45, marginTop:2}}>
+                          Previewing the first {previewCount} {previewCount === 1 ? 'record' : 'records'} with {visibleCols.length} {visibleCols.length === 1 ? 'column' : 'columns'} mapped. Scroll horizontally inside a record to see more columns.
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {csvImportError && (
                   <div style={{
+                    flexShrink:0,
                     padding:'10px 12px', borderRadius:'var(--radius-md)',
                     background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.30)',
                     color:'#991b1b',
@@ -11308,71 +11381,111 @@ const HomeScreen = ({ tweaks }) => {
                   </div>
                 )}
 
-                <div style={{display:'flex', flexDirection:'column', gap:8}}>
-                  {effectiveHeaders.map((h, i) => {
-                    const isPhone   = h === csvPhoneCol;
-                    const isInclude = csvIncludedCols[h] && !isPhone;
-                    const samples   = effectiveRows.slice(0, 3).map(r => (r[i] === undefined || r[i] === null) ? '' : String(r[i])).filter(s => s !== '');
-                    return (
-                      <div key={i} style={{
-                        padding:'10px 12px', borderRadius:'var(--radius-md)',
-                        border:'1px solid ' + (isPhone ? 'rgba(94,16,188,0.45)' : 'var(--card-border)'),
-                        background: isPhone ? 'rgba(94,16,188,0.06)' : 'var(--input-bg)',
-                      }}>
-                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:4, flexWrap:'wrap'}}>
-                          <div style={{display:'flex', alignItems:'center', gap:8, minWidth:0}}>
-                            <span style={{
-                              display:'inline-flex', alignItems:'center',
-                              padding:'2px 7px', borderRadius:4,
-                              background: isPhone ? 'var(--accent)' : 'rgba(94,16,188,0.10)',
-                              color: isPhone ? '#ffffff' : 'var(--accent)',
-                              fontFamily:'var(--font-subheading)', fontSize:9.5, fontWeight:800,
-                              textTransform:'uppercase', letterSpacing:'0.08em',
-                            }}>{h}</span>
-                            {isPhone && (
-                              <span style={{
-                                display:'inline-flex', alignItems:'center', gap:4,
-                                padding:'1px 6px', borderRadius:4,
-                                background:'rgba(94,16,188,0.13)', color:'var(--accent)',
-                                fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
-                                textTransform:'uppercase', letterSpacing:'0.08em',
-                              }}>
-                                <Icon name="cellphone" size={9}/> Phone
-                              </span>
-                            )}
-                            {isInclude && (
-                              <span style={{
-                                display:'inline-flex', alignItems:'center',
-                                padding:'1px 6px', borderRadius:4,
-                                background:'rgba(61,184,50,0.13)', color:'#1f7a18',
-                                fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
-                                textTransform:'uppercase', letterSpacing:'0.08em',
-                              }}>Included</span>
-                            )}
-                          </div>
-                        </div>
+                {/* Records list — vertical scroll container */}
+                <div style={{flex:1, minHeight:0, overflowY:'auto', display:'flex', flexDirection:'column', gap:8}}>
+                  {(() => {
+                    // Columns shown in each record card: phone column + included columns, in file order.
+                    const previewCols = effectiveHeaders
+                      .map((h, idx) => ({ header:h, idx }))
+                      .filter(c => c.header === csvPhoneCol || csvIncludedCols[c.header]);
+                    const previewRows = effectiveRows.slice(0, 10);
+
+                    if (effectiveHeaders.length === 0) {
+                      return (
                         <div style={{
-                          fontFamily: isPhone ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
-                          fontSize:12, color:'var(--text-secondary)', lineHeight:1.5,
-                          wordBreak:'break-word',
+                          padding:'24px', borderRadius:'var(--radius-md)',
+                          border:'1px dashed var(--card-border)', background:'var(--input-bg)',
+                          fontFamily:'var(--font-subheading)', fontSize:12, color:'var(--text-tertiary)',
+                          textAlign:'center',
                         }}>
-                          {samples.length
-                            ? samples.map((s, j) => (<span key={j}>{j > 0 && <span style={{color:'var(--text-tertiary)'}}> &middot; </span>}{s}</span>))
-                            : <span style={{color:'var(--text-tertiary)', fontStyle:'italic'}}>No sample values</span>}
+                          No columns detected. Try uploading a different file.
+                        </div>
+                      );
+                    }
+
+                    if (previewCols.length === 0) {
+                      return (
+                        <div style={{
+                          padding:'24px', borderRadius:'var(--radius-md)',
+                          border:'1px dashed var(--card-border)', background:'var(--input-bg)',
+                          fontFamily:'var(--font-subheading)', fontSize:12, color:'var(--text-tertiary)',
+                          textAlign:'center',
+                        }}>
+                          Select a phone column or check any optional column to preview records.
+                        </div>
+                      );
+                    }
+
+                    const truncate = (s, n = 32) => {
+                      if (s == null) return '';
+                      const str = String(s);
+                      return str.length > n ? str.slice(0, n - 1) + '…' : str;
+                    };
+
+                    return previewRows.map((row, rIdx) => (
+                      <div key={rIdx} style={{
+                        flexShrink:0,
+                        border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
+                        background:'var(--input-bg)',
+                        overflowX:'auto',
+                      }}>
+                        <div style={{
+                          display:'flex', alignItems:'stretch', gap:0,
+                          padding:'10px 14px',
+                          minWidth:'min-content',
+                        }}>
+                          {/* Record label */}
+                          <div style={{
+                            flexShrink:0, alignSelf:'center',
+                            display:'flex', flexDirection:'column',
+                            paddingRight:14, marginRight:14,
+                            borderRight:'1px solid var(--card-border)',
+                            minWidth:100,
+                          }}>
+                            <span style={{fontFamily:'var(--font-display)', fontSize:13, fontWeight:700, color:'var(--text-primary)'}}>Record {rIdx + 1}</span>
+                            <span style={{fontFamily:'var(--font-subheading)', fontSize:10, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em'}}>Row {rIdx + 1}</span>
+                          </div>
+                          {previewCols.map((col, cIdx) => {
+                            const isPhone = col.header === csvPhoneCol;
+                            const raw     = row[col.idx];
+                            const value   = (raw === null || raw === undefined) ? '' : String(raw).trim();
+                            return (
+                              <div key={cIdx} style={{
+                                flexShrink:0,
+                                display:'flex', flexDirection:'column', gap:3,
+                                minWidth:130, maxWidth:220,
+                                paddingRight:18,
+                              }}>
+                                <span style={{
+                                  display:'inline-flex', alignSelf:'flex-start', alignItems:'center',
+                                  padding:'2px 7px', borderRadius:4,
+                                  background: isPhone ? 'var(--accent)' : 'rgba(94,16,188,0.10)',
+                                  color: isPhone ? '#ffffff' : 'var(--accent)',
+                                  fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                                  textTransform:'uppercase', letterSpacing:'0.07em',
+                                  whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                                  maxWidth:'100%',
+                                }} title={col.header}>{truncate(col.header, 22)}</span>
+                                <span
+                                  title={value}
+                                  style={{
+                                    fontFamily: isPhone ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
+                                    fontSize: 12.5,
+                                    color: value === '' ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                    lineHeight:1.4,
+                                    whiteSpace:'nowrap',
+                                    overflow:'hidden', textOverflow:'ellipsis',
+                                    fontStyle: value === '' ? 'italic' : 'normal',
+                                  }}>
+                                  {value === '' ? '—' : truncate(value, 32)}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    );
-                  })}
-                  {effectiveHeaders.length === 0 && (
-                    <div style={{
-                      padding:'24px', borderRadius:'var(--radius-md)',
-                      border:'1px dashed var(--card-border)', background:'var(--input-bg)',
-                      fontFamily:'var(--font-subheading)', fontSize:12, color:'var(--text-tertiary)',
-                      textAlign:'center',
-                    }}>
-                      No columns detected. Try uploading a different file.
-                    </div>
-                  )}
+                    ));
+                  })()}
                 </div>
               </div>
             </div>
