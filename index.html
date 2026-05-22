@@ -9823,6 +9823,259 @@ const HomeScreen = ({ tweaks }) => {
     setPhoneLookupResult(null);
   };
 
+  // ── Phone Lookup — Bulk list (CSV) ──
+  // Schema for the bulk lookup output (also used as headers in the downloaded CSV)
+  const LOOKUP_FIELD_DEFS = [
+    { key:'validatedNumber',          label:'Validated Number' },
+    { key:'validatedNumberFormatted', label:'Validated Number Formatted' },
+    { key:'status',                   label:'Status' },
+    { key:'type',                     label:'Type' },
+    { key:'carrier',                  label:'Carrier' },
+    { key:'carrierParent',            label:'Carrier Parent' },
+    { key:'carrierChangedDt',         label:'Carrier Changed Dt' },
+    { key:'previousCarrier',          label:'Previous Carrier' },
+    { key:'blacklisted',              label:'Blacklisted' },
+  ];
+
+  const phoneListFileInputRef = useRef(null);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [csvImportData, setCsvImportData] = useState(null); // { fileName, headers, rows }
+  const [csvHasHeaders, setCsvHasHeaders] = useState(true);
+  const [csvPhoneCol,   setCsvPhoneCol]   = useState('');
+  const [csvIncludedCols, setCsvIncludedCols] = useState({});
+  const [csvImportError,  setCsvImportError]  = useState('');
+  const [lookupJobs, setLookupJobs] = useState([]); // { id, fileName, status:'processing'|'completed', total, completed, includedCols, phoneCol, rows, results, createdAt }
+
+  // Minimal CSV parser that handles quoted fields and embedded commas/newlines.
+  const parseCsv = (text) => {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i+1] === '"') { field += '"'; i++; }
+          else { inQuotes = false; }
+        } else { field += c; }
+      } else {
+        if (c === '"') { inQuotes = true; }
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i+1] === '\n') i++;
+          row.push(field); rows.push(row); row = []; field = '';
+        } else { field += c; }
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+    // strip trailing empty rows
+    while (rows.length && rows[rows.length-1].every(c => (c || '').trim() === '')) rows.pop();
+    return rows;
+  };
+
+  // Convert any reasonable phone string to E.164 (assumes US/NANP for 10-digit inputs).
+  const toE164 = (raw) => {
+    if (raw === null || raw === undefined) return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    if (s.startsWith('+')) {
+      const digits = s.slice(1).replace(/\D/g, '');
+      return digits ? `+${digits}` : null;
+    }
+    const digits = s.replace(/\D/g, '');
+    if (digits.length === 10) return `+1${digits}`;
+    if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+    if (digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+    return null;
+  };
+
+  const openPhoneListPicker = () => {
+    if (phoneListFileInputRef.current) phoneListFileInputRef.current.click();
+  };
+
+  const handlePhoneListFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = String(ev.target.result || '');
+      const parsed = parseCsv(text);
+      if (!parsed.length) {
+        setCsvImportError('That file appears to be empty.');
+        setCsvImportOpen(true);
+        setCsvImportData({ fileName: file.name, headers: [], rows: [] });
+        return;
+      }
+      const headers = parsed[0].map((h, i) => (h && h.trim()) ? h.trim() : `Column ${i+1}`);
+      const rows    = parsed.slice(1);
+      setCsvImportData({ fileName: file.name, headers, rows, rawRows: parsed });
+      setCsvHasHeaders(true);
+      setCsvPhoneCol('');
+      // default: include all columns except phone (toggled when phone is chosen)
+      const initial = {};
+      headers.forEach(h => { initial[h] = true; });
+      setCsvIncludedCols(initial);
+      setCsvImportError('');
+      setCsvImportOpen(true);
+    };
+    reader.onerror = () => {
+      setCsvImportError('Could not read that file.');
+      setCsvImportOpen(true);
+    };
+    reader.readAsText(file);
+  };
+
+  // Recompute headers/rows from cached raw parse when "first row is headers" toggles.
+  const effectiveHeaders = useMemo(() => {
+    if (!csvImportData) return [];
+    if (csvHasHeaders) return csvImportData.headers;
+    const cols = (csvImportData.rawRows && csvImportData.rawRows[0] || []).length;
+    return Array.from({ length: cols }, (_, i) => `Column ${i+1}`);
+  }, [csvImportData, csvHasHeaders]);
+
+  const effectiveRows = useMemo(() => {
+    if (!csvImportData || !csvImportData.rawRows) return [];
+    return csvHasHeaders ? csvImportData.rawRows.slice(1) : csvImportData.rawRows;
+  }, [csvImportData, csvHasHeaders]);
+
+  // Re-seed inclusion map when header mode changes
+  useEffect(() => {
+    if (!csvImportData) return;
+    const next = {};
+    effectiveHeaders.forEach(h => { next[h] = (h !== csvPhoneCol); });
+    setCsvIncludedCols(next);
+    if (csvPhoneCol && effectiveHeaders.indexOf(csvPhoneCol) === -1) setCsvPhoneCol('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [csvHasHeaders]);
+
+  const closeCsvImport = () => {
+    setCsvImportOpen(false);
+    setCsvImportData(null);
+    setCsvPhoneCol('');
+    setCsvIncludedCols({});
+    setCsvImportError('');
+  };
+
+  const toggleIncludedCol = (col) => {
+    setCsvIncludedCols(prev => ({ ...prev, [col]: !prev[col] }));
+  };
+
+  const setPhoneColumn = (col) => {
+    setCsvPhoneCol(col);
+    // auto-include all non-phone columns by default; user can untoggle
+    setCsvIncludedCols(prev => {
+      const next = { ...prev };
+      effectiveHeaders.forEach(h => {
+        if (h === col) next[h] = false;
+        else if (next[h] === undefined) next[h] = true;
+      });
+      return next;
+    });
+  };
+
+  const submitPhoneList = () => {
+    if (!csvImportData) return;
+    if (!csvPhoneCol) {
+      setCsvImportError('Please choose which column contains the phone number.');
+      return;
+    }
+    const phoneIdx = effectiveHeaders.indexOf(csvPhoneCol);
+    if (phoneIdx === -1) {
+      setCsvImportError('The selected phone column is no longer in the file.');
+      return;
+    }
+    const includedHeaders = effectiveHeaders.filter(h => csvIncludedCols[h] && h !== csvPhoneCol);
+    const rowsSnapshot = effectiveRows.map(r => r.slice());
+    const job = {
+      id: 'job-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+      fileName: csvImportData.fileName,
+      status: 'processing',
+      total: rowsSnapshot.length,
+      completed: 0,
+      phoneCol: csvPhoneCol,
+      phoneColIdx: phoneIdx,
+      includedCols: includedHeaders,
+      headers: effectiveHeaders.slice(),
+      rows: rowsSnapshot,
+      results: [],
+      createdAt: Date.now(),
+    };
+    setLookupJobs(prev => [job, ...prev]);
+    closeCsvImport();
+
+    // Simulate processing — replace with the real bulk-lookup pipeline when wired up.
+    // We tick every ~120ms, processing one row at a time so users see progress.
+    const tick = (idx) => {
+      if (idx >= rowsSnapshot.length) {
+        setLookupJobs(prev => prev.map(j => j.id === job.id ? { ...j, status:'completed', completed: rowsSnapshot.length } : j));
+        return;
+      }
+      const row = rowsSnapshot[idx];
+      const rawPhone = row[phoneIdx];
+      const e164 = toE164(rawPhone);
+      // Stub lookup result — in production, await an API call here.
+      const result = e164 ? {
+        validatedNumber:          e164,
+        validatedNumberFormatted: e164,
+        status:                   'mobile',
+        type:                     'mobile',
+        carrier:                  'CELLCO PARTNERSHIP DBA VERIZON WIRELESS - CA',
+        carrierParent:            'Verizon',
+        carrierChangedDt:         'December 30, 2019, 12:00 AM',
+        previousCarrier:          'NEW CINGULAR WIRELESS PCS, LLC - GA',
+        blacklisted:              'False',
+      } : {
+        validatedNumber:          '',
+        validatedNumberFormatted: '',
+        status:                   'invalid',
+        type:                     '',
+        carrier:                  '',
+        carrierParent:            '',
+        carrierChangedDt:         '',
+        previousCarrier:          '',
+        blacklisted:              '',
+      };
+      setLookupJobs(prev => prev.map(j => {
+        if (j.id !== job.id) return j;
+        const results = j.results.slice();
+        results[idx] = result;
+        return { ...j, results, completed: idx + 1 };
+      }));
+      setTimeout(() => tick(idx + 1), 120);
+    };
+    setTimeout(() => tick(0), 150);
+  };
+
+  // CSV download for a completed job
+  const csvEscape = (v) => {
+    const s = (v === null || v === undefined) ? '' : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const downloadJobCsv = (job) => {
+    const headers = [...job.includedCols, ...LOOKUP_FIELD_DEFS.map(f => f.label)];
+    const lines = [headers.map(csvEscape).join(',')];
+    for (let i = 0; i < job.rows.length; i++) {
+      const row = job.rows[i];
+      const r   = job.results[i] || {};
+      const includedVals = job.includedCols.map(h => row[job.headers.indexOf(h)]);
+      const lookupVals   = LOOKUP_FIELD_DEFS.map(f => r[f.key]);
+      lines.push([...includedVals, ...lookupVals].map(csvEscape).join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const base = (job.fileName || 'phone-lookup').replace(/\.csv$/i, '');
+    a.href = url;
+    a.download = `${base}-lookup-results.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const removeJob = (id) => setLookupJobs(prev => prev.filter(j => j.id !== id));
+
   const [expanded,   setExpanded]    = useState({ company:true, account:false, technical:false });
   const toggleExpanded = (k) => setExpanded(p => ({ ...p, [k]: !p[k] }));
   const updateUser    = (patch) => setUserInfo(u => ({ ...u, ...patch }));
@@ -10485,19 +10738,42 @@ const HomeScreen = ({ tweaks }) => {
                     {(phoneLookupResult || phoneLookupError) && (
                       <button
                         onClick={clearPhoneLookup}
+                        title="Reset"
                         style={{
                           flexShrink:0,
-                          display:'inline-flex', alignItems:'center', gap:6,
-                          padding:'11px 14px', borderRadius:999,
-                          background:'var(--card-bg)', border:'1px solid var(--card-border)',
-                          color:'var(--text-secondary)',
-                          fontFamily:'var(--font-subheading)', fontSize:12, fontWeight:600,
+                          display:'inline-flex', alignItems:'center', justifyContent:'center',
+                          width:38, padding:'11px 0', borderRadius:999,
+                          background:'transparent', border:'1px solid var(--card-border)',
+                          color:'var(--text-tertiary)',
                           cursor:'pointer', transition:'all .15s',
                         }}>
                         <Icon name="close" size={11}/>
-                        Clear
                       </button>
                     )}
+                    <input
+                      ref={phoneListFileInputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      style={{display:'none'}}
+                      onChange={handlePhoneListFile}
+                    />
+                    <button
+                      onClick={openPhoneListPicker}
+                      style={{
+                        flexShrink:0,
+                        display:'inline-flex', alignItems:'center', gap:8,
+                        padding:'11px 18px', borderRadius:999,
+                        background:'var(--card-bg)', border:'1px solid var(--accent)',
+                        color:'var(--accent)',
+                        fontFamily:'var(--font-display)', fontSize:12.5, fontWeight:700,
+                        letterSpacing:'0.03em',
+                        cursor:'pointer', transition:'all .15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(94,16,188,0.08)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--card-bg)'; }}>
+                      <Icon name="upload" size={12}/>
+                      List Upload
+                    </button>
                   </div>
 
                   {phoneLookupError && (
@@ -10513,69 +10789,171 @@ const HomeScreen = ({ tweaks }) => {
                   )}
                 </div>
 
-                {/* Results */}
-                {phoneLookupResult && (
-                  <div>
-                    <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:8}}>Lookup Result</div>
-                    <div style={{
-                      display:'grid',
-                      gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))',
-                      gap:'12px 16px',
-                      border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
-                      padding:'14px 16px', background:'var(--input-bg)',
-                    }}>
-                      {[
-                        { label:'Validated Number',           value: phoneLookupResult.validatedNumber,          mono:true  },
-                        { label:'Validated Number Formatted', value: phoneLookupResult.validatedNumberFormatted, mono:true  },
-                        { label:'Status',                     value: phoneLookupResult.status,                   mono:false },
-                        { label:'Type',                       value: phoneLookupResult.type,                     mono:false },
-                        { label:'Carrier',                    value: phoneLookupResult.carrier,                  mono:false },
-                        { label:'Carrier Parent',             value: phoneLookupResult.carrierParent,            mono:false },
-                        { label:'Carrier Changed Dt',         value: phoneLookupResult.carrierChangedDt,         mono:false },
-                        { label:'Previous Carrier',           value: phoneLookupResult.previousCarrier,          mono:false },
-                        { label:'Blacklisted',                value: phoneLookupResult.blacklisted,              mono:false, badge:true },
-                      ].map((r, i) => {
-                        const display = (r.value === null || r.value === undefined || r.value === '') ? '—' : String(r.value);
-                        const isBlacklistTrue  = r.badge && display.toLowerCase() === 'true';
-                        const isBlacklistFalse = r.badge && display.toLowerCase() === 'false';
-                        return (
-                          <div key={i} style={{display:'flex', flexDirection:'column', gap:4, minWidth:0}}>
+                {/* Results — always visible so users see what will be returned */}
+                <div>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:8}}>Lookup Result</div>
+                  <div style={{
+                    display:'grid',
+                    gridTemplateColumns:'repeat(auto-fill, minmax(200px, 1fr))',
+                    gap:'12px 16px',
+                    border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
+                    padding:'14px 16px', background:'var(--input-bg)',
+                    opacity: phoneLookupResult ? 1 : 0.82,
+                    transition:'opacity .2s',
+                  }}>
+                    {LOOKUP_FIELD_DEFS.map((f, i) => {
+                      const raw     = phoneLookupResult ? phoneLookupResult[f.key] : '';
+                      const display = (raw === null || raw === undefined || raw === '') ? '—' : String(raw);
+                      const isBadge = f.key === 'blacklisted';
+                      const isMono  = f.key === 'validatedNumber' || f.key === 'validatedNumberFormatted';
+                      const isEmpty = display === '—';
+                      const isBlacklistTrue  = isBadge && !isEmpty && display.toLowerCase() === 'true';
+                      const isBlacklistFalse = isBadge && !isEmpty && display.toLowerCase() === 'false';
+                      return (
+                        <div key={i} style={{display:'flex', flexDirection:'column', gap:4, minWidth:0}}>
+                          <span style={{
+                            display:'inline-flex', alignSelf:'flex-start', alignItems:'center',
+                            padding:'2px 8px', borderRadius:4,
+                            background:'rgba(94,16,188,0.10)', color:'var(--accent)',
+                            fontFamily:'var(--font-subheading)', fontSize:9.5, fontWeight:800,
+                            textTransform:'uppercase', letterSpacing:'0.08em',
+                          }}>{f.label}</span>
+                          {isBadge && !isEmpty ? (
                             <span style={{
-                              display:'inline-flex', alignSelf:'flex-start', alignItems:'center',
-                              padding:'2px 8px', borderRadius:4,
-                              background:'rgba(94,16,188,0.10)', color:'var(--accent)',
-                              fontFamily:'var(--font-subheading)', fontSize:9.5, fontWeight:800,
-                              textTransform:'uppercase', letterSpacing:'0.08em',
-                            }}>{r.label}</span>
-                            {r.badge ? (
+                              display:'inline-flex', alignSelf:'flex-start', alignItems:'center', gap:5,
+                              marginTop:2,
+                              padding:'3px 9px', borderRadius:999,
+                              background: isBlacklistTrue ? 'rgba(220,38,38,0.10)' : (isBlacklistFalse ? 'rgba(61,184,50,0.13)' : 'var(--card-bg)'),
+                              border:'1px solid ' + (isBlacklistTrue ? 'rgba(220,38,38,0.30)' : (isBlacklistFalse ? 'rgba(61,184,50,0.30)' : 'var(--card-border)')),
+                              color: isBlacklistTrue ? '#991b1b' : (isBlacklistFalse ? '#1f7a18' : 'var(--text-secondary)'),
+                              fontFamily:'var(--font-subheading)', fontSize:11.5, fontWeight:700,
+                            }}>
                               <span style={{
-                                display:'inline-flex', alignSelf:'flex-start', alignItems:'center', gap:5,
-                                marginTop:2,
-                                padding:'3px 9px', borderRadius:999,
-                                background: isBlacklistTrue ? 'rgba(220,38,38,0.10)' : (isBlacklistFalse ? 'rgba(61,184,50,0.13)' : 'var(--card-bg)'),
-                                border:'1px solid ' + (isBlacklistTrue ? 'rgba(220,38,38,0.30)' : (isBlacklistFalse ? 'rgba(61,184,50,0.30)' : 'var(--card-border)')),
-                                color: isBlacklistTrue ? '#991b1b' : (isBlacklistFalse ? '#1f7a18' : 'var(--text-secondary)'),
-                                fontFamily:'var(--font-subheading)', fontSize:11.5, fontWeight:700,
-                              }}>
+                                width:6, height:6, borderRadius:'50%',
+                                background: isBlacklistTrue ? '#dc2626' : (isBlacklistFalse ? '#3db832' : 'var(--text-tertiary)'),
+                              }}/>
+                              {display}
+                            </span>
+                          ) : (
+                            <span style={{
+                              fontFamily: isMono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
+                              fontSize: 13,
+                              color: isEmpty ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                              lineHeight:1.4,
+                              wordBreak:'break-word',
+                            }}>{display}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Submitted Lists */}
+                {lookupJobs.length > 0 && (
+                  <div>
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:8, flexWrap:'wrap'}}>
+                      <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em'}}>Submitted Lists</div>
+                      {/* Legend */}
+                      <div style={{display:'inline-flex', alignItems:'center', gap:14, fontFamily:'var(--font-subheading)', fontSize:11, color:'var(--text-secondary)'}}>
+                        <span style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                          <span style={{
+                            width:10, height:10, borderRadius:'50%', background:'#f5b400',
+                            boxShadow:'0 0 0 3px rgba(245,180,0,0.18)',
+                            animation:'pl-pulse 1.4s ease-in-out infinite',
+                          }}/>
+                          Processing
+                        </span>
+                        <span style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                          <span style={{width:10, height:10, borderRadius:'50%', background:'#3db832', boxShadow:'0 0 0 3px rgba(61,184,50,0.18)'}}/>
+                          Completed
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                      {lookupJobs.map(job => {
+                        const isDone = job.status === 'completed';
+                        const pct    = job.total ? Math.round((job.completed / job.total) * 100) : 0;
+                        return (
+                          <div key={job.id} style={{
+                            display:'flex', alignItems:'center', gap:14,
+                            padding:'12px 14px',
+                            border:'1px solid var(--card-border)', borderRadius:'var(--radius-md)',
+                            background:'var(--input-bg)',
+                          }}>
+                            <span style={{
+                              flexShrink:0, width:12, height:12, borderRadius:'50%',
+                              background: isDone ? '#3db832' : '#f5b400',
+                              boxShadow: isDone
+                                ? '0 0 0 4px rgba(61,184,50,0.18)'
+                                : '0 0 0 4px rgba(245,180,0,0.18)',
+                              animation: isDone ? 'none' : 'pl-pulse 1.4s ease-in-out infinite',
+                            }}/>
+                            <div style={{flex:1, minWidth:0}}>
+                              <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                                <span style={{fontFamily:'var(--font-display)', fontSize:13.5, fontWeight:700, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{job.fileName}</span>
                                 <span style={{
-                                  width:6, height:6, borderRadius:'50%',
-                                  background: isBlacklistTrue ? '#dc2626' : (isBlacklistFalse ? '#3db832' : 'var(--text-tertiary)'),
-                                }}/>
-                                {display}
-                              </span>
-                            ) : (
-                              <span style={{
-                                fontFamily: r.mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
-                                fontSize: r.mono ? 13 : 13,
-                                color:'var(--text-primary)',
-                                lineHeight:1.4,
-                                wordBreak:'break-word',
-                              }}>{display}</span>
+                                  display:'inline-flex', alignItems:'center',
+                                  padding:'1px 7px', borderRadius:4,
+                                  background: isDone ? 'rgba(61,184,50,0.13)' : 'rgba(245,180,0,0.13)',
+                                  color: isDone ? '#1f7a18' : '#8a6300',
+                                  fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                                  textTransform:'uppercase', letterSpacing:'0.08em',
+                                }}>{isDone ? 'Completed' : 'Processing'}</span>
+                              </div>
+                              <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', marginTop:3}}>
+                                {isDone
+                                  ? `${job.total.toLocaleString()} numbers looked up · phone column: ${job.phoneCol}`
+                                  : `${job.completed.toLocaleString()} / ${job.total.toLocaleString()} processed (${pct}%) · phone column: ${job.phoneCol}`}
+                              </div>
+                              {!isDone && (
+                                <div style={{marginTop:6, height:4, background:'var(--card-border)', borderRadius:2, overflow:'hidden'}}>
+                                  <div style={{width:`${pct}%`, height:'100%', background:'#f5b400', transition:'width .2s'}}/>
+                                </div>
+                              )}
+                            </div>
+                            {isDone && (
+                              <button
+                                onClick={() => downloadJobCsv(job)}
+                                style={{
+                                  flexShrink:0,
+                                  display:'inline-flex', alignItems:'center', gap:7,
+                                  padding:'8px 14px', borderRadius:999,
+                                  background:'var(--accent)', border:'1px solid var(--accent)',
+                                  color:'#ffffff',
+                                  fontFamily:'var(--font-display)', fontSize:12, fontWeight:700,
+                                  letterSpacing:'0.03em',
+                                  cursor:'pointer', transition:'all .15s',
+                                }}>
+                                <Icon name="download" size={11}/>
+                                Download
+                              </button>
                             )}
+                            <button
+                              onClick={() => removeJob(job.id)}
+                              title="Remove"
+                              style={{
+                                flexShrink:0,
+                                display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                width:30, height:30, borderRadius:'50%',
+                                background:'transparent', border:'1px solid transparent',
+                                color:'var(--text-tertiary)',
+                                cursor:'pointer', transition:'all .15s',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background='var(--card-bg)'; e.currentTarget.style.borderColor='var(--card-border)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}>
+                              <Icon name="close" size={11}/>
+                            </button>
                           </div>
                         );
                       })}
                     </div>
+                    <style>{`
+                      @keyframes pl-pulse {
+                        0%, 100% { opacity: 1; }
+                        50%      { opacity: 0.55; }
+                      }
+                    `}</style>
                   </div>
                 )}
               </React.Fragment>)}
@@ -10708,6 +11086,343 @@ const HomeScreen = ({ tweaks }) => {
 
       {selectedEvent && (
         <HomeEventModal item={selectedEvent} onClose={() => setSelectedEvent(null)}/>
+      )}
+
+      {csvImportOpen && (
+        <div
+          onClick={closeCsvImport}
+          style={{
+            position:'fixed', inset:0, zIndex:200,
+            background:'rgba(0,0,0,0.40)', backdropFilter:'blur(4px)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            padding:'24px',
+            animation:'pl-fade-in .15s ease',
+          }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:'var(--card-bg)',
+              border:'1px solid var(--card-border)',
+              borderRadius:'var(--radius-lg)',
+              width:'min(1080px, 100%)',
+              maxHeight:'calc(100vh - 48px)',
+              boxShadow:'0 24px 48px rgba(0,0,0,0.22)',
+              display:'flex', flexDirection:'column',
+              animation:'pl-slide-up .2s ease',
+              overflow:'hidden',
+            }}>
+            {/* Modal header */}
+            <div style={{
+              display:'flex', alignItems:'center', justifyContent:'space-between', gap:14,
+              padding:'14px 18px', borderBottom:'1px solid var(--card-border)',
+            }}>
+              <div style={{display:'flex', alignItems:'center', gap:10, minWidth:0}}>
+                <div style={{
+                  flexShrink:0, width:32, height:32, borderRadius:8,
+                  background:'rgba(94,16,188,0.13)', color:'var(--accent)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                }}>
+                  <Icon name="upload" size={15}/>
+                </div>
+                <div style={{minWidth:0}}>
+                  <div style={{fontFamily:'var(--font-display)', fontSize:15, fontWeight:700, color:'var(--text-primary)'}}>CSV Import &mdash; Phone Lookup</div>
+                  {csvImportData && (
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                      {csvImportData.fileName} &middot; {effectiveRows.length.toLocaleString()} {effectiveRows.length === 1 ? 'row' : 'rows'}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={closeCsvImport}
+                title="Close"
+                style={{
+                  flexShrink:0,
+                  display:'inline-flex', alignItems:'center', justifyContent:'center',
+                  width:32, height:32, borderRadius:8,
+                  background:'transparent', border:'1px solid transparent',
+                  color:'var(--text-tertiary)', cursor:'pointer', transition:'all .15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background='var(--input-bg)'; e.currentTarget.style.borderColor='var(--card-border)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='transparent'; }}>
+                <Icon name="close" size={13}/>
+              </button>
+            </div>
+
+            {/* Modal body — two panes */}
+            <div style={{
+              flex:1, minHeight:0,
+              display:'grid', gridTemplateColumns:'minmax(0, 1fr) minmax(0, 1.1fr)',
+              overflow:'hidden',
+            }}>
+              {/* LEFT — Mapping */}
+              <div style={{
+                padding:'18px 20px', overflowY:'auto',
+                borderRight:'1px solid var(--card-border)',
+                display:'flex', flexDirection:'column', gap:18,
+              }}>
+                <div>
+                  <div style={{fontFamily:'var(--font-display)', fontSize:13.5, fontWeight:700, color:'var(--text-primary)', marginBottom:2}}>Settings</div>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.45}}>Configure how the file should be parsed.</div>
+                </div>
+
+                {/* First row is headers toggle */}
+                <label style={{
+                  display:'flex', alignItems:'center', gap:12,
+                  padding:'10px 12px', borderRadius:'var(--radius-md)',
+                  border:'1px solid var(--card-border)', background:'var(--input-bg)',
+                  cursor:'pointer',
+                }}>
+                  <span
+                    onClick={(e) => { e.preventDefault(); setCsvHasHeaders(v => !v); }}
+                    style={{
+                      flexShrink:0, position:'relative',
+                      width:36, height:20, borderRadius:999,
+                      background: csvHasHeaders ? 'var(--accent)' : 'var(--card-border)',
+                      transition:'background .15s',
+                    }}>
+                    <span style={{
+                      position:'absolute', top:2, left: csvHasHeaders ? 18 : 2,
+                      width:16, height:16, borderRadius:'50%',
+                      background:'#ffffff', transition:'left .15s',
+                      boxShadow:'0 1px 2px rgba(0,0,0,0.18)',
+                    }}/>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={csvHasHeaders}
+                    onChange={e => setCsvHasHeaders(e.target.checked)}
+                    style={{display:'none'}}
+                  />
+                  <span style={{fontFamily:'var(--font-subheading)', fontSize:13, color:'var(--text-primary)', fontWeight:600}}>First row of CSV file is headers</span>
+                </label>
+
+                {/* Phone column (required) */}
+                <div>
+                  <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:6}}>
+                    <span style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em'}}>Phone Number Column</span>
+                    <span style={{
+                      display:'inline-flex', alignItems:'center',
+                      padding:'1px 6px', borderRadius:4,
+                      background:'rgba(220,38,38,0.10)', color:'#991b1b',
+                      fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                      textTransform:'uppercase', letterSpacing:'0.08em',
+                    }}>Required</span>
+                  </div>
+                  <div style={{position:'relative'}}>
+                    <select
+                      value={csvPhoneCol}
+                      onChange={e => setPhoneColumn(e.target.value)}
+                      style={{
+                        width:'100%', padding:'10px 32px 10px 12px',
+                        border:'1px solid ' + (csvPhoneCol ? 'var(--card-border)' : 'rgba(220,38,38,0.45)'),
+                        borderRadius:'var(--radius-md)',
+                        background:'var(--input-bg)', color: csvPhoneCol ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                        fontFamily:'var(--font-body)', fontSize:13,
+                        appearance:'none', cursor:'pointer', outline:'none',
+                      }}>
+                      <option value="">Select a column…</option>
+                      {effectiveHeaders.map(h => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                    <Icon name="chevronDown" size={12} style={{position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', color:'var(--text-tertiary)'}}/>
+                  </div>
+                  <div style={{
+                    marginTop:8,
+                    padding:'10px 12px', borderRadius:'var(--radius-md)',
+                    background:'rgba(245,180,0,0.08)', border:'1px solid rgba(245,180,0,0.30)',
+                    fontFamily:'var(--font-subheading)', fontSize:11.5, color:'#8a6300', lineHeight:1.5,
+                  }}>
+                    The selected column must contain at least 10 digits per row in a consistent format (e.g. <code style={{fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace'}}>6192451678</code>, <code style={{fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace'}}>(619) 245-1678</code>, or <code style={{fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace'}}>+16192451678</code>). Whatever format you provide will be converted into E.164 automatically.
+                  </div>
+                </div>
+
+                {/* Optional fields to include */}
+                {effectiveHeaders.length > 0 && (
+                  <div>
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:10, fontWeight:800, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:6}}>Additional Columns to Include (optional)</div>
+                    <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.45, marginBottom:10}}>
+                      Selected columns will be passed through into the results file alongside the lookup data.
+                    </div>
+                    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                      {effectiveHeaders.filter(h => h !== csvPhoneCol).map(h => {
+                        const checked = !!csvIncludedCols[h];
+                        return (
+                          <label key={h} style={{
+                            display:'flex', alignItems:'center', gap:10,
+                            padding:'8px 11px', borderRadius:'var(--radius-md)',
+                            border:'1px solid var(--card-border)', background: checked ? 'rgba(94,16,188,0.06)' : 'var(--input-bg)',
+                            cursor:'pointer', transition:'background .15s, border-color .15s',
+                            borderColor: checked ? 'rgba(94,16,188,0.35)' : 'var(--card-border)',
+                          }}>
+                            <span
+                              onClick={(e) => { e.preventDefault(); toggleIncludedCol(h); }}
+                              style={{
+                                flexShrink:0,
+                                width:16, height:16, borderRadius:4,
+                                border:'1.5px solid ' + (checked ? 'var(--accent)' : 'var(--card-border)'),
+                                background: checked ? 'var(--accent)' : 'transparent',
+                                display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                color:'#ffffff', transition:'all .15s',
+                              }}>
+                              {checked && <Icon name="check" size={10}/>}
+                            </span>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleIncludedCol(h)}
+                              style={{display:'none'}}
+                            />
+                            <span style={{fontFamily:'var(--font-body)', fontSize:12.5, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{h}</span>
+                          </label>
+                        );
+                      })}
+                      {effectiveHeaders.filter(h => h !== csvPhoneCol).length === 0 && (
+                        <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-tertiary)', fontStyle:'italic'}}>
+                          No additional columns available. Select a phone column above.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT — Detected columns preview */}
+              <div style={{padding:'18px 20px', overflowY:'auto', display:'flex', flexDirection:'column', gap:14}}>
+                <div>
+                  <div style={{fontFamily:'var(--font-display)', fontSize:13.5, fontWeight:700, color:'var(--text-primary)', marginBottom:2}}>Detected Columns</div>
+                  <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)', lineHeight:1.45}}>
+                    {effectiveHeaders.length} {effectiveHeaders.length === 1 ? 'column' : 'columns'} detected in your file. Sample values from the first few rows are shown below.
+                  </div>
+                </div>
+
+                {csvImportError && (
+                  <div style={{
+                    padding:'10px 12px', borderRadius:'var(--radius-md)',
+                    background:'rgba(220,38,38,0.08)', border:'1px solid rgba(220,38,38,0.30)',
+                    color:'#991b1b',
+                    fontFamily:'var(--font-subheading)', fontSize:12, lineHeight:1.45,
+                  }}>
+                    {csvImportError}
+                  </div>
+                )}
+
+                <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                  {effectiveHeaders.map((h, i) => {
+                    const isPhone   = h === csvPhoneCol;
+                    const isInclude = csvIncludedCols[h] && !isPhone;
+                    const samples   = effectiveRows.slice(0, 3).map(r => (r[i] === undefined || r[i] === null) ? '' : String(r[i])).filter(s => s !== '');
+                    return (
+                      <div key={i} style={{
+                        padding:'10px 12px', borderRadius:'var(--radius-md)',
+                        border:'1px solid ' + (isPhone ? 'rgba(94,16,188,0.45)' : 'var(--card-border)'),
+                        background: isPhone ? 'rgba(94,16,188,0.06)' : 'var(--input-bg)',
+                      }}>
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:4, flexWrap:'wrap'}}>
+                          <div style={{display:'flex', alignItems:'center', gap:8, minWidth:0}}>
+                            <span style={{
+                              display:'inline-flex', alignItems:'center',
+                              padding:'2px 7px', borderRadius:4,
+                              background: isPhone ? 'var(--accent)' : 'rgba(94,16,188,0.10)',
+                              color: isPhone ? '#ffffff' : 'var(--accent)',
+                              fontFamily:'var(--font-subheading)', fontSize:9.5, fontWeight:800,
+                              textTransform:'uppercase', letterSpacing:'0.08em',
+                            }}>{h}</span>
+                            {isPhone && (
+                              <span style={{
+                                display:'inline-flex', alignItems:'center', gap:4,
+                                padding:'1px 6px', borderRadius:4,
+                                background:'rgba(94,16,188,0.13)', color:'var(--accent)',
+                                fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                                textTransform:'uppercase', letterSpacing:'0.08em',
+                              }}>
+                                <Icon name="cellphone" size={9}/> Phone
+                              </span>
+                            )}
+                            {isInclude && (
+                              <span style={{
+                                display:'inline-flex', alignItems:'center',
+                                padding:'1px 6px', borderRadius:4,
+                                background:'rgba(61,184,50,0.13)', color:'#1f7a18',
+                                fontFamily:'var(--font-subheading)', fontSize:9, fontWeight:800,
+                                textTransform:'uppercase', letterSpacing:'0.08em',
+                              }}>Included</span>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{
+                          fontFamily: isPhone ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'var(--font-body)',
+                          fontSize:12, color:'var(--text-secondary)', lineHeight:1.5,
+                          wordBreak:'break-word',
+                        }}>
+                          {samples.length
+                            ? samples.map((s, j) => (<span key={j}>{j > 0 && <span style={{color:'var(--text-tertiary)'}}> &middot; </span>}{s}</span>))
+                            : <span style={{color:'var(--text-tertiary)', fontStyle:'italic'}}>No sample values</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {effectiveHeaders.length === 0 && (
+                    <div style={{
+                      padding:'24px', borderRadius:'var(--radius-md)',
+                      border:'1px dashed var(--card-border)', background:'var(--input-bg)',
+                      fontFamily:'var(--font-subheading)', fontSize:12, color:'var(--text-tertiary)',
+                      textAlign:'center',
+                    }}>
+                      No columns detected. Try uploading a different file.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div style={{
+              display:'flex', alignItems:'center', justifyContent:'space-between', gap:14,
+              padding:'12px 18px', borderTop:'1px solid var(--card-border)',
+              background:'var(--input-bg)', flexWrap:'wrap',
+            }}>
+              <div style={{fontFamily:'var(--font-subheading)', fontSize:11.5, color:'var(--text-secondary)'}}>
+                {effectiveRows.length.toLocaleString()} {effectiveRows.length === 1 ? 'phone number' : 'phone numbers'} will be looked up
+                {csvPhoneCol && <> &middot; phone column: <strong style={{color:'var(--text-primary)'}}>{csvPhoneCol}</strong></>}
+              </div>
+              <div style={{display:'inline-flex', alignItems:'center', gap:8}}>
+                <button
+                  onClick={closeCsvImport}
+                  style={{
+                    padding:'9px 16px', borderRadius:999,
+                    background:'transparent', border:'1px solid var(--card-border)',
+                    color:'var(--text-secondary)',
+                    fontFamily:'var(--font-subheading)', fontSize:12, fontWeight:600,
+                    cursor:'pointer', transition:'all .15s',
+                  }}>Cancel</button>
+                <button
+                  onClick={submitPhoneList}
+                  disabled={!csvPhoneCol || effectiveRows.length === 0}
+                  style={{
+                    display:'inline-flex', alignItems:'center', gap:7,
+                    padding:'9px 18px', borderRadius:999,
+                    background:'var(--accent)', border:'1px solid var(--accent)',
+                    color:'#ffffff',
+                    fontFamily:'var(--font-display)', fontSize:12.5, fontWeight:700,
+                    letterSpacing:'0.03em',
+                    cursor: (!csvPhoneCol || effectiveRows.length === 0) ? 'not-allowed' : 'pointer',
+                    opacity: (!csvPhoneCol || effectiveRows.length === 0) ? 0.55 : 1,
+                    transition:'all .15s',
+                    boxShadow:'0 1px 2px rgba(94,16,188,0.18)',
+                  }}>
+                  <Icon name="check" size={11}/>
+                  Submit List
+                </button>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            @keyframes pl-fade-in { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes pl-slide-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+          `}</style>
+        </div>
       )}
     </div>
   );
