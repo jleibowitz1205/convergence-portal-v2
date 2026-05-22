@@ -5049,8 +5049,6 @@ const TouchPointsScreen = () => {
                 const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                 return `${months[m-1]} ${String(d).padStart(2,'0')}, ${y}`;
               })() : '';
-              const locParts = [selectedCustomer.city, selectedCustomer.state].filter(Boolean).join(', ');
-              const locLine  = [locParts, selectedCustomer.postalCode].filter(Boolean).join(' ');
               return (
                 <div className="tp-contact-summary">
                   <div className="tp-contact-summary-head">
@@ -5086,12 +5084,24 @@ const TouchPointsScreen = () => {
                         {selectedCustomer.address || 'Not on file'}
                       </span>
                     </div>
-                    {locLine && (
-                      <div className="tp-contact-summary-row">
-                        <span className="tp-contact-summary-row-lbl">Location</span>
-                        <span className="tp-contact-summary-row-val">{locLine}</span>
-                      </div>
-                    )}
+                    <div className="tp-contact-summary-row">
+                      <span className="tp-contact-summary-row-lbl">City</span>
+                      <span className={`tp-contact-summary-row-val${selectedCustomer.city ? '' : ' empty'}`}>
+                        {selectedCustomer.city || 'Not on file'}
+                      </span>
+                    </div>
+                    <div className="tp-contact-summary-row">
+                      <span className="tp-contact-summary-row-lbl">State</span>
+                      <span className={`tp-contact-summary-row-val${selectedCustomer.state ? '' : ' empty'}`}>
+                        {selectedCustomer.state || 'Not on file'}
+                      </span>
+                    </div>
+                    <div className="tp-contact-summary-row">
+                      <span className="tp-contact-summary-row-lbl">Postal</span>
+                      <span className={`tp-contact-summary-row-val${selectedCustomer.postalCode ? '' : ' empty'}`}>
+                        {selectedCustomer.postalCode || 'Not on file'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
