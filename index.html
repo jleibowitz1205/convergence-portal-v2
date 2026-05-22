@@ -2257,81 +2257,218 @@
     font-family: monospace;
   }
 
-  /* TouchPoint type filter (middle column header) */
+  /* TouchPoint type filter — compact trigger + dropdown checklist */
   .tp-filter-bar {
     flex-shrink: 0;
-    padding: 12px 20px;
+    padding: 10px 20px;
     border-bottom: 1px solid var(--card-border);
     background: var(--input-bg);
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
     align-items: center;
+    gap: 10px;
+    position: relative;
   }
-  .tp-filter-label {
+  .tp-filter-summary {
     font-family: var(--font-subheading);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--text-tertiary);
-    margin-right: 4px;
-  }
-  .tp-filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--card-border);
-    background: var(--card-bg);
+    font-size: 11.5px;
     color: var(--text-secondary);
-    font-family: var(--font-subheading);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.12s;
-    user-select: none;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  .tp-filter-chip:hover {
-    border-color: var(--text-tertiary);
+  .tp-filter-summary-count {
+    font-weight: 700;
     color: var(--text-primary);
   }
-  .tp-filter-chip.active {
+  .tp-filter-summary-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+  .tp-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--text-primary);
+    font-family: var(--font-subheading);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tp-filter-trigger:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .tp-filter-trigger.is-active {
     background: var(--accent);
     border-color: var(--accent);
     color: #fff;
   }
-  .tp-filter-chip.active:hover {
+  .tp-filter-trigger.is-active:hover {
     background: var(--accent-dark);
     border-color: var(--accent-dark);
   }
-  .tp-filter-chip-count {
+  .tp-filter-trigger-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: rgba(255,255,255,0.25);
     font-size: 10px;
     font-weight: 700;
-    opacity: 0.7;
   }
-  .tp-filter-chip.active .tp-filter-chip-count { opacity: 0.85; }
-  .tp-filter-actions {
-    margin-left: auto;
+  .tp-filter-trigger:not(.is-active) .tp-filter-trigger-badge {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  /* Dropdown panel */
+  .tp-filter-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 20px;
+    z-index: 50;
+    width: 320px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: 0 18px 42px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.02);
+    overflow: hidden;
+    animation: tpFilterIn 0.14s ease-out;
+  }
+  @keyframes tpFilterIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .tp-filter-panel-head {
     display: flex;
-    gap: 6px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--card-border);
   }
-  .tp-filter-action-btn {
+  .tp-filter-panel-title {
+    font-family: var(--font-subheading);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .tp-filter-panel-actions { display: flex; gap: 4px; }
+  .tp-filter-panel-action {
     background: transparent;
     border: none;
     color: var(--text-tertiary);
     font-family: var(--font-subheading);
     font-size: 10.5px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     cursor: pointer;
-    padding: 4px 6px;
-    border-radius: 4px;
+    padding: 3px 7px;
+    border-radius: 5px;
     transition: color 0.12s, background 0.12s;
   }
-  .tp-filter-action-btn:hover { color: var(--accent); background: var(--accent-light); }
+  .tp-filter-panel-action:hover { color: var(--accent); background: var(--accent-light); }
+
+  .tp-filter-panel-group {
+    padding: 8px 6px 4px;
+  }
+  .tp-filter-panel-group + .tp-filter-panel-group {
+    border-top: 1px solid var(--card-border);
+  }
+  .tp-filter-panel-group-label {
+    font-family: var(--font-subheading);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 2px 10px 6px;
+  }
+
+  .tp-filter-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin: 1px 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.10s;
+    position: relative;
+  }
+  .tp-filter-option:hover { background: var(--sidebar-hover-bg); }
+  [data-theme="dark"] .tp-filter-option:hover { background: rgba(255,255,255,0.04); }
+  body:not([data-theme]) .tp-filter-option:hover,
+  [data-theme="sage"] .tp-filter-option:hover { background: rgba(0,0,0,0.035); }
+
+  /* Color bar on the left signals the type's category color */
+  .tp-filter-option-bar {
+    width: 3px;
+    align-self: stretch;
+    border-radius: 2px;
+    background: var(--type-color, var(--accent));
+    flex-shrink: 0;
+    transition: opacity 0.12s;
+  }
+  .tp-filter-option.is-off .tp-filter-option-bar { opacity: 0.25; }
+
+  .tp-filter-option-icon {
+    width: 26px; height: 26px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    background: var(--type-bg, var(--accent-light));
+    color: var(--type-color, var(--accent));
+    transition: opacity 0.12s, filter 0.12s;
+  }
+  .tp-filter-option.is-off .tp-filter-option-icon {
+    opacity: 0.4;
+    filter: grayscale(0.7);
+  }
+
+  .tp-filter-option-text { flex: 1; min-width: 0; }
+  .tp-filter-option-label {
+    font-family: var(--font-subheading);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+    transition: color 0.12s;
+  }
+  .tp-filter-option.is-off .tp-filter-option-label { color: var(--text-tertiary); }
+  .tp-filter-option-count {
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+    margin-top: 1px;
+    font-family: var(--font-subheading);
+  }
+
+  /* Checkbox at the right */
+  .tp-filter-option-check {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid var(--card-border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    background: var(--card-bg);
+    color: #fff;
+    transition: all 0.12s;
+  }
+  .tp-filter-option:not(.is-off) .tp-filter-option-check {
+    background: var(--type-color, var(--accent));
+    border-color: var(--type-color, var(--accent));
+  }
 
   /* Contact info card (right column, above activity summary) */
   .tp-contact-summary {
@@ -4463,11 +4600,30 @@ const TouchPointsScreen = () => {
   // ── TouchPoint type filter (middle column) ───────────────────────────
   // All types start checked. Order matters for display.
   const TP_FILTER_TYPES = ['sales','service_txn','service_appt','appointment','followup','phone_call','link_click','text_inbound','text_outbound'];
+  // Grouped for the dropdown panel — uses the same buckets as the right column.
+  const TP_FILTER_GROUPS = [
+    { label: 'Transactions', types: ['sales','service_txn'] },
+    { label: 'Conversions',  types: ['service_appt','appointment','followup','phone_call','link_click'] },
+    { label: 'Engagements',  types: ['text_inbound','text_outbound'] },
+  ];
   const [typeFilter, setTypeFilter] = useState(() => {
     const s = {};
     TP_FILTER_TYPES.forEach(t => { s[t] = true; });
     return s;
   });
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const filterPanelRef = React.useRef(null);
+  // Close on outside click
+  React.useEffect(() => {
+    if (!filterPanelOpen) return;
+    const onDoc = (e) => {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) {
+        setFilterPanelOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [filterPanelOpen]);
   const toggleTypeFilter = (t) => setTypeFilter(prev => ({ ...prev, [t]: !prev[t] }));
   const setAllFilters = (val) => {
     setTypeFilter(() => {
@@ -4757,32 +4913,83 @@ const TouchPointsScreen = () => {
 
         {/* MIDDLE 50% - Timeline */}
         <div className="tp-middle">
-          {selectedCustomer && (
-            <div className="tp-filter-bar">
-              <span className="tp-filter-label">Show</span>
-              {TP_FILTER_TYPES.map(t => {
-                const tm = TP_TYPE[t];
-                const active = !!typeFilter[t];
-                const count = countFor(t);
-                return (
-                  <button
-                    key={t}
-                    className={`tp-filter-chip${active ? ' active' : ''}`}
-                    onClick={() => toggleTypeFilter(t)}
-                    title={active ? `Hide ${tm.label}` : `Show ${tm.label}`}
-                  >
-                    <Icon name={tm.icon} size={11}/>
-                    <span>{tm.label}</span>
-                    <span className="tp-filter-chip-count">{count}</span>
-                  </button>
-                );
-              })}
-              <div className="tp-filter-actions">
-                <button className="tp-filter-action-btn" onClick={() => setAllFilters(true)}>All</button>
-                <button className="tp-filter-action-btn" onClick={() => setAllFilters(false)}>None</button>
+          {selectedCustomer && (() => {
+            const activeCount = TP_FILTER_TYPES.filter(t => typeFilter[t]).length;
+            const totalTypes  = TP_FILTER_TYPES.length;
+            const allOn  = activeCount === totalTypes;
+            const allOff = activeCount === 0;
+            return (
+              <div className="tp-filter-bar" ref={filterPanelRef}>
+                <div className="tp-filter-summary">
+                  <span className="tp-filter-summary-dot" style={{background: allOff ? 'var(--text-tertiary)' : 'var(--accent)'}}/>
+                  <span>
+                    Showing <span className="tp-filter-summary-count">{displayedTimeline.length}</span> of{' '}
+                    <span className="tp-filter-summary-count">{selectedTimeline.length}</span> touchpoints
+                  </span>
+                </div>
+                <button
+                  className={`tp-filter-trigger${!allOn ? ' is-active' : ''}`}
+                  onClick={() => setFilterPanelOpen(o => !o)}
+                  title="Filter touchpoint types"
+                >
+                  <Icon name="filter" size={12}/>
+                  <span>{allOn ? 'Filter' : 'Filtered'}</span>
+                  {!allOn && (
+                    <span className="tp-filter-trigger-badge">{activeCount}/{totalTypes}</span>
+                  )}
+                </button>
+
+                {filterPanelOpen && (
+                  <div className="tp-filter-panel">
+                    <div className="tp-filter-panel-head">
+                      <span className="tp-filter-panel-title">Touchpoint Types</span>
+                      <div className="tp-filter-panel-actions">
+                        <button className="tp-filter-panel-action" onClick={() => setAllFilters(true)}>All</button>
+                        <button className="tp-filter-panel-action" onClick={() => setAllFilters(false)}>None</button>
+                      </div>
+                    </div>
+                    {TP_FILTER_GROUPS.map(group => (
+                      <div className="tp-filter-panel-group" key={group.label}>
+                        <div className="tp-filter-panel-group-label">{group.label}</div>
+                        {group.types.map(t => {
+                          const tm = TP_TYPE[t];
+                          const on = !!typeFilter[t];
+                          const count = countFor(t);
+                          // Use the type's own brand color via CSS custom properties.
+                          const styleVars = { '--type-color': tm.color, '--type-bg': tm.bg };
+                          const label = t === 'appointment' ? 'Sales Appointment' : tm.label;
+                          return (
+                            <div
+                              key={t}
+                              className={`tp-filter-option${on ? '' : ' is-off'}`}
+                              style={styleVars}
+                              onClick={() => toggleTypeFilter(t)}
+                            >
+                              <div className="tp-filter-option-bar"/>
+                              <div className="tp-filter-option-icon">
+                                <Icon name={tm.icon} size={13}/>
+                              </div>
+                              <div className="tp-filter-option-text">
+                                <div className="tp-filter-option-label">{label}</div>
+                                <div className="tp-filter-option-count">{count} {count === 1 ? 'event' : 'events'}</div>
+                              </div>
+                              <span className="tp-filter-option-check">
+                                {on && (
+                                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2.5 6.2l2.4 2.3L9.5 3.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
           <div className="tp-timeline">
             {displayedTimeline.length ? displayedTimeline.map((evt, idx) => {
               const tm = TP_TYPE[evt.type] || TP_TYPE['appointment'];
