@@ -4106,12 +4106,9 @@ const INVENTORY_DATASOURCE = {
 // The first is the only one that's actually wired — the rest are presentational
 // "coming soon" placeholders.
 const INTEGRATIONS_CATALOG = [
-  { id:'inventory',  name:'Inventory',          icon:'🚗', color:'#5E10BC', desc:'Bring in your inventory right from your website',           dbDef: INVENTORY_DATASOURCE },
-  { id:'dms',        name:'DMS Sync',           icon:'🗄️', color:'#0ea5e9', desc:'Sync transactions and repair orders from your DMS',         comingSoon:true },
-  { id:'crm',        name:'CRM Connector',      icon:'🔄', color:'#22c55e', desc:'Connect your CRM to push and pull contacts',                comingSoon:true },
-  { id:'website',    name:'Website Tracking',   icon:'🌐', color:'#f59e0b', desc:'Drop a pixel and capture every visitor session',            comingSoon:true },
-  { id:'email',      name:'Email Platform',     icon:'✉️', color:'#ec4899', desc:'Sync sends, opens and clicks from your ESP',                comingSoon:true },
-  { id:'service',    name:'Service Scheduler',  icon:'🔧', color:'#7E54D9', desc:'Pull live service appointments straight from the scheduler',comingSoon:true },
+  { id:'inventory',     name:'Inventory',     icon:'🚗', color:'#5E10BC', desc:'Bring in your inventory right from your website',   dbDef: INVENTORY_DATASOURCE },
+  { id:'dms',           name:'DMS Sync',      icon:'🗄️', color:'#0ea5e9', desc:'Sync transactions and repair orders from your DMS', comingSoon:true },
+  { id:'leadproviders', name:'Lead Providers', icon:'📥', color:'#22c55e', desc:'Configure inbound lead feeds and build assignment rules', isLeadProviders:true },
 ];
 
 // ─── CONVERGENCE PORTAL DATA (Pipelines / Portfolio / TouchPoints / Weave) ───
@@ -4317,11 +4314,844 @@ const CX_CUSTOMERS = [
   },
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  LEAD PROVIDERS — modals invoked from the Pipelines → Integrations tab.
+//  Two modals: AddLeadProviderModal (create) and ViewLeadProvidersModal (manage).
+//  Filter editor mirrors the Report Builder step 3 (filter rows + groups,
+//  scoped and/or junction, drag-to-reorder, op set by column type) — but the
+//  field list comes from a parsed sample file (ADF XML or JSON) instead of a
+//  data-source table.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Flatten a JSON value into a list of {path, type} field descriptors.
+// Nested objects/arrays are walked with dot notation. Arrays use the first
+// element as the prototype (e.g. items.0.name → "items[].name" feels nicer
+// but we keep dot notation for parity with everyday flatten libs).
+const flattenJsonFields = (value, prefix = '', acc = [], seen = new Set()) => {
+  if (value === null || value === undefined) {
+    acc.push({ path: prefix || '(root)', type: 'str' });
+    return acc;
+  }
+  const t = typeof value;
+  if (t === 'string')  { acc.push({ path: prefix || '(root)', type: 'str'  }); return acc; }
+  if (t === 'number')  { acc.push({ path: prefix || '(root)', type: 'num'  }); return acc; }
+  if (t === 'boolean') { acc.push({ path: prefix || '(root)', type: 'str'  }); return acc; }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      acc.push({ path: (prefix || '(root)') + '[]', type: 'str' });
+      return acc;
+    }
+    // Use the first item as the prototype for nested keys.
+    flattenJsonFields(value[0], (prefix || '(root)') + '[]', acc, seen);
+    return acc;
+  }
+  if (t === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 0) {
+      acc.push({ path: prefix || '(root)', type: 'str' });
+      return acc;
+    }
+    keys.forEach(k => {
+      const next = prefix ? `${prefix}.${k}` : k;
+      if (seen.has(next)) return;
+      seen.add(next);
+      flattenJsonFields(value[k], next, acc, seen);
+    });
+    return acc;
+  }
+  acc.push({ path: prefix || '(root)', type: 'str' });
+  return acc;
+};
+
+// Heuristic: infer column type from a string value.
+const inferTypeFromString = (v) => {
+  if (v == null) return 'str';
+  const s = String(v).trim();
+  if (s === '') return 'str';
+  if (/^-?\d+(\.\d+)?$/.test(s)) return 'num';
+  // Common date shapes (ISO-ish or YYYY-MM-DD) → date
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return 'date';
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s)) return 'date';
+  return 'str';
+};
+
+// Walk an XML Element and emit {path, type} for every leaf element + every
+// attribute. Path uses slash notation rooted at the XML root tag.
+const flattenXmlFields = (node, prefix, acc, seenPaths) => {
+  if (!node) return acc;
+  // Attributes on this node
+  if (node.attributes) {
+    for (let i = 0; i < node.attributes.length; i++) {
+      const a = node.attributes[i];
+      const p = `${prefix}@${a.name}`;
+      if (!seenPaths.has(p)) {
+        seenPaths.add(p);
+        acc.push({ path: p, type: inferTypeFromString(a.value) });
+      }
+    }
+  }
+  // Child elements
+  const childElements = Array.from(node.children || []);
+  if (childElements.length === 0) {
+    // Leaf — emit with the text content's inferred type
+    const txt = (node.textContent || '').trim();
+    if (!seenPaths.has(prefix)) {
+      seenPaths.add(prefix);
+      acc.push({ path: prefix, type: inferTypeFromString(txt) });
+    }
+    return acc;
+  }
+  childElements.forEach(child => {
+    flattenXmlFields(child, `${prefix}/${child.tagName}`, acc, seenPaths);
+  });
+  return acc;
+};
+
+const parseAdfXml = (text) => {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'application/xml');
+    const err = doc.querySelector('parsererror');
+    if (err) return { ok: false, error: err.textContent || 'XML parse error', fields: [], preview: text };
+    const root = doc.documentElement;
+    if (!root || root.nodeName === 'parsererror') {
+      return { ok: false, error: 'Invalid XML', fields: [], preview: text };
+    }
+    const fields = [];
+    flattenXmlFields(root, root.tagName, fields, new Set());
+    // Pretty-print
+    let pretty = text;
+    try {
+      const serializer = new XMLSerializer();
+      pretty = serializer.serializeToString(doc);
+    } catch (_) {}
+    return { ok: true, error: null, fields, preview: pretty };
+  } catch (e) {
+    return { ok: false, error: String(e.message || e), fields: [], preview: text };
+  }
+};
+
+const parseLeadJson = (text) => {
+  try {
+    const obj = JSON.parse(text);
+    const fields = flattenJsonFields(obj);
+    // de-dup (object cycles already protected by `seen`, but doubles can sneak in for arrays)
+    const seen = new Set();
+    const deduped = [];
+    fields.forEach(f => { if (!seen.has(f.path)) { seen.add(f.path); deduped.push(f); }});
+    return { ok: true, error: null, fields: deduped, preview: JSON.stringify(obj, null, 2) };
+  } catch (e) {
+    return { ok: false, error: String(e.message || e), fields: [], preview: text };
+  }
+};
+
+// ── Filter editor — identical shape & behaviour to Report Builder step 3.
+// Takes `fields` (from the parsed sample) as the column list, and surfaces
+// onChange(filters). Self-contained: drag-to-reorder, scoped junctions,
+// groups, op set keyed by column type.
+const LeadFilterEditor = ({ fields, filters, onChange }) => {
+  const OPS = {
+    str:  ['contains','does not contain','is','is not','starts with','ends with','is empty','is not empty'],
+    num:  ['=','≠','>','<','≥','≤','is empty','is not empty'],
+    date: ['is','is before','is after','is on or before','is on or after','is within','is empty','is not empty'],
+  };
+  const NO_VALUE_OPS = ['is empty','is not empty'];
+
+  const [filterDragId, setFilterDragId] = useState(null);
+  const [filterDropTarget, setFilterDropTarget] = useState(null);
+
+  const allCols = (fields && fields.length > 0)
+    ? fields.map(f => ({ name: f.path, type: f.type || 'str' }))
+    : [{ name:'(upload a sample to see fields)', type:'str' }];
+
+  const setFilters = (updater) => {
+    const next = typeof updater === 'function' ? updater(filters) : updater;
+    onChange(next);
+  };
+
+  const updateFilter = (id, patch) => setFilters(prev =>
+    prev.map(f => f.id === id ? {...f,...patch}
+      : f.type === 'group' ? {...f, conditions: f.conditions.map(c => c.id===id ? {...c,...patch} : c)} : f
+    )
+  );
+
+  const setTopLevelJunction = (j) => setFilters(prev =>
+    prev.map((f, i) => i === 0 ? f : {...f, junction: j})
+  );
+  const setGroupJunction = (groupId, j) => setFilters(prev =>
+    prev.map(g => g.id === groupId && g.type === 'group'
+      ? {...g, conditions: g.conditions.map((c, i) => i === 0 ? c : {...c, junction: j})}
+      : g
+    )
+  );
+  const topLevelJunction = (filters.find((_, i) => i === 1)?.junction) || 'and';
+  const removeFilter = (id) => setFilters(prev =>
+    prev.filter(f => f.id !== id).map(f =>
+      f.type === 'group' ? {...f, conditions: f.conditions.filter(c => c.id !== id)} : f
+    )
+  );
+  const removeGroup = (id) => setFilters(prev => prev.filter(f => f.id !== id));
+  const addConditionToGroup = (groupId) => {
+    const colDef = allCols[0];
+    setFilters(prev => prev.map(f => {
+      if (f.id !== groupId) return f;
+      const grpJunction = (f.conditions[1]?.junction) || f.conditions[0]?.junction || 'and';
+      return {...f, conditions:[...f.conditions, {id:Date.now()+Math.random(), col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:grpJunction}]};
+    }));
+  };
+  const makeFilter = (col) => {
+    const colDef = allCols.find(c => c.name === col) || allCols[0];
+    return {id:Date.now()+Math.random(), type:'filter', col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:topLevelJunction};
+  };
+  const makeGroup = () => ({
+    id:Date.now()+Math.random(), type:'group',
+    junction:topLevelJunction,
+    conditions:[],
+  });
+
+  const reorderTopLevelFilter = (sourceId, targetId, position) => {
+    if (sourceId === targetId) return;
+    setFilters(prev => {
+      const fromIdx = prev.findIndex(f => f.id === sourceId);
+      if (fromIdx === -1) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      let insertAt = next.findIndex(f => f.id === targetId);
+      if (insertAt === -1) insertAt = next.length;
+      if (position === 'after') insertAt += 1;
+      next.splice(insertAt, 0, moved);
+      return next;
+    });
+  };
+  const reorderConditionInGroup = (groupId, sourceId, targetId, position) => {
+    if (sourceId === targetId) return;
+    setFilters(prev => prev.map(g => {
+      if (g.id !== groupId || g.type !== 'group') return g;
+      const fromIdx = g.conditions.findIndex(c => c.id === sourceId);
+      if (fromIdx === -1) return g;
+      const nextConds = [...g.conditions];
+      const [moved] = nextConds.splice(fromIdx, 1);
+      let insertAt = nextConds.findIndex(c => c.id === targetId);
+      if (insertAt === -1) insertAt = nextConds.length;
+      if (position === 'after') insertAt += 1;
+      nextConds.splice(insertAt, 0, moved);
+      return { ...g, conditions: nextConds };
+    }));
+  };
+  const calcDropPosition = (e, currentPos) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    if (currentPos === 'before' && ratio < 0.6) return 'before';
+    if (currentPos === 'after'  && ratio > 0.4) return 'after';
+    return ratio < 0.5 ? 'before' : 'after';
+  };
+  const endFilterDrag = () => { setFilterDragId(null); setFilterDropTarget(null); };
+
+  const renderFilterRow = (f, isFirst, onJunctionChange, onRemove, parentGroupId = null, scopeIndex = 0, scopeJunction = 'and') => {
+    const ops = OPS[f.colType] || OPS.str;
+    const noVal = NO_VALUE_OPS.includes(f.op);
+    const isDraggingThis = filterDragId === f.id;
+    const isDropTarget   = filterDropTarget?.id === f.id;
+    const dropPos        = filterDropTarget?.position;
+    return (
+      <div key={f.id}
+        onDragOver={e => {
+          if (filterDragId && filterDragId !== f.id) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+            const pos = calcDropPosition(e, prevPos);
+            if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
+              setFilterDropTarget({ id: f.id, position: pos });
+            }
+          }
+        }}
+        onDrop={e => {
+          e.preventDefault();
+          if (!filterDragId || filterDragId === f.id) { endFilterDrag(); return; }
+          const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+          const pos = calcDropPosition(e, prevPos);
+          if (parentGroupId) reorderConditionInGroup(parentGroupId, filterDragId, f.id, pos);
+          else               reorderTopLevelFilter(filterDragId, f.id, pos);
+          endFilterDrag();
+        }}
+        style={{
+          display:'flex',alignItems:'center',gap:5,flexWrap:'nowrap',
+          position:'relative',
+          opacity: isDraggingThis ? 0.4 : 1,
+          margin:'2px 0',
+          padding:'2px 0',
+          borderRadius:4,
+          background: isDropTarget ? 'var(--accent-light)' : 'transparent',
+          boxShadow: isDropTarget && dropPos === 'before' ? 'inset 0 2px 0 0 var(--accent)'
+                   : isDropTarget && dropPos === 'after'  ? 'inset 0 -2px 0 0 var(--accent)'
+                   : 'none',
+          transition: 'opacity 0.12s, background 0.1s',
+        }}>
+        {isFirst
+          ? <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,width:42,flexShrink:0}}>Where</span>
+          : scopeIndex === 1
+            ? <div style={{position:'relative',flexShrink:0}}>
+                <select value={scopeJunction} onChange={e=>onJunctionChange(e.target.value)}
+                  title="Connector applies to all conditions in this group"
+                  style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
+                  <option value="and">and</option>
+                  <option value="or">or</option>
+                </select>
+                <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
+              </div>
+            : <span title="Connector is shared — change it on the first connector above"
+                style={{fontSize:'11px',fontWeight:600,color:'var(--text-tertiary)',width:52,flexShrink:0,textAlign:'center',padding:'3px 0',border:'1px solid transparent'}}>
+                {scopeJunction}
+              </span>
+        }
+        <div style={{position:'relative',flexShrink:0,minWidth:80,flex:'0 0 32%'}}>
+          <select className="form-input" style={{padding:'3px 18px 3px 7px',fontSize:'12px',width:'100%',appearance:'none',fontWeight:500}}
+            value={f.col}
+            onChange={e=>{
+              const cd=allCols.find(c=>c.name===e.target.value)||allCols[0];
+              updateFilter(f.id,{col:e.target.value,colType:cd.type,op:OPS[cd.type][0],val:''});
+            }}>
+            {allCols.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+          </select>
+          <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
+        </div>
+        <div style={{position:'relative',flexShrink:0,minWidth:70,flex:'0 0 22%'}}>
+          <select className="form-input" style={{padding:'3px 18px 3px 7px',fontSize:'12px',width:'100%',appearance:'none'}}
+            value={f.op}
+            onChange={e=>updateFilter(f.id,{op:e.target.value,val:''})}>
+            {ops.map(o=><option key={o} value={o}>{o}</option>)}
+          </select>
+          <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
+        </div>
+        {!noVal && (
+          f.colType==='date'
+            ? <input type="date" className="form-input" style={{flex:1,minWidth:80,padding:'3px 7px',fontSize:'12px'}} value={f.val} onChange={e=>updateFilter(f.id,{val:e.target.value})}/>
+            : f.colType==='num'
+              ? <input type="number" className="form-input" style={{flex:1,minWidth:60,padding:'3px 7px',fontSize:'12px'}} value={f.val} onChange={e=>updateFilter(f.id,{val:e.target.value})} placeholder="number"/>
+              : <input className="form-input" style={{flex:1,minWidth:60,padding:'3px 7px',fontSize:'12px'}} value={f.val} onChange={e=>updateFilter(f.id,{val:e.target.value})} placeholder="value"/>
+        )}
+        <button style={{background:'none',border:'none',color:'var(--text-tertiary)',cursor:'pointer',padding:'3px 2px',flexShrink:0,display:'flex',alignItems:'center'}}
+          title="Remove" onClick={()=>onRemove(f.id)}>
+          <Icon name="trash" size={13}/>
+        </button>
+        <span
+          draggable
+          onDragStart={e => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(f.id));
+            setFilterDragId(f.id);
+          }}
+          onDragEnd={endFilterDrag}
+          title="Drag to reorder"
+          style={{
+            color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',
+            fontSize:'15px',
+            cursor: filterDragId ? 'grabbing' : 'grab',
+            flexShrink:0,lineHeight:1,userSelect:'none',
+            padding:'4px 6px',
+            borderRadius:4,
+          }}
+        >⠿</span>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {filters.length > 0 && (
+        <div style={{fontSize:'12px',color:'var(--text-secondary)',marginBottom:10,fontStyle:'italic'}}>
+          In this view, route leads where
+        </div>
+      )}
+
+      {filters.map((f, idx) => {
+        const isFirst = idx === 0;
+        if (f.type === 'filter') {
+          return renderFilterRow(
+            f, isFirst,
+            j => setTopLevelJunction(j),
+            removeFilter,
+            null,
+            idx,
+            topLevelJunction
+          );
+        }
+        if (f.type === 'group') {
+          const isDraggingThis = filterDragId === f.id;
+          const isDropTarget   = filterDropTarget?.id === f.id;
+          const dropPos        = filterDropTarget?.position;
+          return (
+            <div key={f.id}
+              onDragOver={e => {
+                if (filterDragId && filterDragId !== f.id) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+                  const pos = calcDropPosition(e, prevPos);
+                  if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
+                    setFilterDropTarget({ id: f.id, position: pos });
+                  }
+                }
+              }}
+              onDrop={e => {
+                e.preventDefault();
+                if (!filterDragId || filterDragId === f.id) { endFilterDrag(); return; }
+                const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
+                const pos = calcDropPosition(e, prevPos);
+                reorderTopLevelFilter(filterDragId, f.id, pos);
+                endFilterDrag();
+              }}
+              style={{
+                margin:'2px 0',
+                padding:'2px',
+                borderRadius:6,
+                opacity: isDraggingThis ? 0.4 : 1,
+                background: isDropTarget ? 'var(--accent-light)' : 'transparent',
+                boxShadow: isDropTarget && dropPos === 'before' ? 'inset 0 2px 0 0 var(--accent)'
+                         : isDropTarget && dropPos === 'after'  ? 'inset 0 -2px 0 0 var(--accent)'
+                         : 'none',
+                transition: 'opacity 0.12s, background 0.1s',
+              }}>
+              <div style={{display:'flex',alignItems:'flex-start',gap:5,marginBottom:4}}>
+                {isFirst
+                  ? <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,width:42,flexShrink:0,paddingTop:6}}>Where</span>
+                  : idx === 1
+                    ? <div style={{position:'relative',flexShrink:0,paddingTop:3}}>
+                        <select value={topLevelJunction} onChange={e=>setTopLevelJunction(e.target.value)}
+                          style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
+                          <option value="and">and</option>
+                          <option value="or">or</option>
+                        </select>
+                        <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
+                      </div>
+                    : <span style={{fontSize:'11px',fontWeight:600,color:'var(--text-tertiary)',width:52,flexShrink:0,textAlign:'center',paddingTop:6}}>
+                        {topLevelJunction}
+                      </span>
+                }
+                <div style={{flex:1,border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',background:'var(--input-bg)',overflow:'hidden'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderBottom: f.conditions.length > 0 ? '1px solid var(--border)' : 'none',background:'var(--card-bg)'}}>
+                    <span style={{fontSize:'11.5px',color:'var(--text-secondary)',flex:1,fontStyle:'italic'}}>Condition group</span>
+                    <button style={{background:'none',border:'none',color:'var(--text-tertiary)',cursor:'pointer',padding:'2px 3px',display:'flex',alignItems:'center'}} title="Add condition" onClick={()=>addConditionToGroup(f.id)}>
+                      <Icon name="plus" size={13}/>
+                    </button>
+                    <button style={{background:'none',border:'none',color:'var(--text-tertiary)',cursor:'pointer',padding:'2px 3px',display:'flex',alignItems:'center'}} title="Remove group" onClick={()=>removeGroup(f.id)}>
+                      <Icon name="trash" size={13}/>
+                    </button>
+                    <span
+                      draggable
+                      onDragStart={e => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(f.id));
+                        setFilterDragId(f.id);
+                      }}
+                      onDragEnd={endFilterDrag}
+                      title="Drag to reorder group"
+                      style={{
+                        color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',
+                        fontSize:'15px',
+                        cursor: filterDragId ? 'grabbing' : 'grab',
+                        lineHeight:1,userSelect:'none',
+                        padding:'4px 6px',
+                        borderRadius:4,
+                      }}
+                    >⠿</span>
+                  </div>
+                  {f.conditions.length === 0 && (
+                    <div style={{padding:'8px 10px',fontSize:'11.5px',color:'var(--text-tertiary)',fontStyle:'italic'}}>
+                      Click <strong>+</strong> to add conditions inside this group
+                    </div>
+                  )}
+                  {f.conditions.length > 0 && (
+                    <div style={{padding:'8px 10px'}}>
+                      {(() => {
+                        const grpJunction = (f.conditions[1]?.junction) || f.conditions[0]?.junction || 'and';
+                        return f.conditions.map((c,ci) =>
+                          renderFilterRow(
+                            c, ci===0,
+                            j => setGroupJunction(f.id, j),
+                            removeFilter,
+                            f.id,
+                            ci,
+                            grpJunction
+                          )
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })}
+
+      <div style={{display:'flex',gap:6,marginTop:filters.length>0?10:0}}>
+        <button className="btn btn-ghost" style={{flex:1,justifyContent:'center',fontSize:'12px'}}
+          onClick={()=>setFilters(f=>[...f,makeFilter(allCols[0].name)])}>
+          <Icon name="plus" size={12}/> Add Filter
+        </button>
+        <button className="btn btn-ghost" style={{flex:1,justifyContent:'center',fontSize:'12px',color:'var(--accent)',borderColor:'rgba(94,16,188,0.4)'}}
+          onClick={()=>setFilters(f=>[...f,makeGroup()])}>
+          <Icon name="plus" size={12}/> Add Group
+        </button>
+      </div>
+
+      <div className="divider"/>
+      <div className="builder-section-title" style={{padding:'0 var(--space-sm)',marginBottom:4}}>Fields — click to filter</div>
+      <div style={{maxHeight:160,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',background:'var(--card-bg)'}}>
+        {allCols.map(c => {
+          const count = filters.filter(f=>f.type==='filter'&&f.col===c.name).length
+            + filters.filter(f=>f.type==='group').reduce((a,g)=>a+g.conditions.filter(fc=>fc.col===c.name).length,0);
+          return (
+            <div key={c.name} className="field-item" style={{cursor:'pointer'}}
+              onClick={()=>setFilters(prev=>[...prev,makeFilter(c.name)])}>
+              <span style={{fontSize:'12.5px',color:'var(--text-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={c.name}>{c.name}</span>
+              <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
+                {count>0 && <span style={{fontSize:'10px',fontWeight:700,color:'white',background:'var(--accent)',padding:'1px 5px',borderRadius:20,minWidth:16,textAlign:'center'}}>{count}</span>}
+                <span className={`field-type ${c.type}`}>{c.type}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── Add Lead Provider modal ───────────────────────────────────────────────────
+const AddLeadProviderModal = ({ onClose, onSave }) => {
+  const [stage, setStage] = useState('config'); // 'config' | 'rules'
+  const [dataType, setDataType] = useState('adf'); // 'adf' | 'json'
+  const [name, setName] = useState('');
+  const [sampleText, setSampleText] = useState('');
+  const [sampleFileName, setSampleFileName] = useState('');
+  const [parseResult, setParseResult] = useState(null); // {ok, error, fields, preview}
+  const [filters, setFilters] = useState([]);
+  const fileRef = useRef(null);
+
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    setSampleFileName(f.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = String(ev.target.result || '');
+      setSampleText(text);
+      const result = dataType === 'adf' ? parseAdfXml(text) : parseLeadJson(text);
+      setParseResult(result);
+    };
+    reader.readAsText(f);
+  };
+
+  // Re-parse if user switches data type after upload
+  const handleDataTypeChange = (next) => {
+    setDataType(next);
+    if (sampleText) {
+      const result = next === 'adf' ? parseAdfXml(sampleText) : parseLeadJson(sampleText);
+      setParseResult(result);
+    }
+  };
+
+  const canBuildRules = name.trim().length > 0 && parseResult && parseResult.ok && parseResult.fields.length > 0;
+  const canSave = canBuildRules; // Save is allowed at stage 'rules' (rules are optional but parse must be OK)
+
+  const handleSave = () => {
+    const provider = {
+      id: Date.now() + Math.random(),
+      name: name.trim(),
+      dataType,
+      sampleFileName,
+      sample: sampleText,
+      fields: parseResult.fields,
+      filters,
+      createdAt: Date.now(),
+    };
+    onSave(provider);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{width: stage === 'config' ? 760 : 720, maxWidth:'94vw'}}>
+        <div className="modal-header">
+          <div className="modal-title">
+            {stage === 'config' ? 'Add Lead Provider' : `Build Lead Assignment Rules — ${name || 'Provider'}`}
+          </div>
+          <button className="btn btn-icon" onClick={onClose}><Icon name="close" size={14}/></button>
+        </div>
+
+        {stage === 'config' && (
+          <div className="modal-body" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'var(--space-lg)'}}>
+            {/* Left: form */}
+            <div>
+              <div className="form-group">
+                <label className="form-label">Data Type</label>
+                <select className="form-input" value={dataType} onChange={e => handleDataTypeChange(e.target.value)}>
+                  <option value="adf">ADF XML</option>
+                  <option value="json">JSON</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Lead Provider Name</label>
+                <input className="form-input" placeholder="e.g. AutoTrader, Cars.com…" value={name} onChange={e => setName(e.target.value)} autoFocus/>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Sample Lead File</label>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept={dataType === 'adf' ? '.xml,.txt,text/xml,text/plain' : '.json,application/json'}
+                  style={{display:'none'}}
+                  onChange={onFile}
+                />
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <button className="btn btn-ghost" style={{fontSize:12}} onClick={() => fileRef.current && fileRef.current.click()}>
+                    <Icon name="upload" size={13}/> Choose File
+                  </button>
+                  <span style={{fontSize:12, color:'var(--text-tertiary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={sampleFileName}>
+                    {sampleFileName || (dataType === 'adf' ? 'Expecting a plain-text ADF XML sample' : 'Expecting a raw JSON sample')}
+                  </span>
+                </div>
+                <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:6, lineHeight:1.45}}>
+                  Or paste the sample below:
+                </div>
+                <textarea
+                  className="form-input"
+                  style={{marginTop:6, height:140, fontFamily:'monospace', fontSize:11.5, resize:'vertical'}}
+                  placeholder={dataType === 'adf' ? '<?xml version="1.0"?>\n<adf>\n  <prospect>…</prospect>\n</adf>' : '{\n  "lead": {\n    "firstName": "Jane"\n  }\n}'}
+                  value={sampleText}
+                  onChange={e => {
+                    setSampleText(e.target.value);
+                    if (e.target.value.trim()) {
+                      const result = dataType === 'adf' ? parseAdfXml(e.target.value) : parseLeadJson(e.target.value);
+                      setParseResult(result);
+                    } else {
+                      setParseResult(null);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Right: preview */}
+            <div>
+              <label className="form-label">Interpreted Sample</label>
+              {!parseResult && (
+                <div style={{padding:'14px',border:'1px dashed var(--border)',borderRadius:'var(--radius-sm)',background:'var(--input-bg)',fontSize:12,color:'var(--text-tertiary)',height:'calc(100% - 24px)',display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
+                  Upload or paste a sample to see the interpreted fields here.
+                </div>
+              )}
+              {parseResult && !parseResult.ok && (
+                <div style={{padding:'12px',border:'1px solid #ef4444',borderRadius:'var(--radius-sm)',background:'rgba(239,68,68,0.06)',fontSize:12,color:'#ef4444'}}>
+                  <div style={{fontWeight:600, marginBottom:4}}>Could not interpret sample</div>
+                  <div style={{fontSize:11,opacity:0.85}}>{parseResult.error}</div>
+                </div>
+              )}
+              {parseResult && parseResult.ok && (
+                <div style={{border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',overflow:'hidden',background:'var(--card-bg)'}}>
+                  <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--input-bg)'}}>
+                    <Icon name="check" size={13} style={{color:'#22c55e'}}/>
+                    <span style={{fontSize:12,fontWeight:600}}>{parseResult.fields.length} fields detected</span>
+                  </div>
+                  <div style={{maxHeight:140,overflowY:'auto',padding:'4px 0'}}>
+                    {parseResult.fields.map(f => (
+                      <div key={f.path} style={{display:'flex',alignItems:'center',gap:8,padding:'3px 12px',fontSize:11.5}}>
+                        <span style={{flex:1, overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-primary)'}} title={f.path}>{f.path}</span>
+                        <span className={`field-type ${f.type}`}>{f.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{borderTop:'1px solid var(--border)',padding:'8px 10px',background:'var(--input-bg)',fontSize:11,color:'var(--text-tertiary)',fontWeight:600}}>Raw Preview</div>
+                  <pre style={{margin:0,padding:'8px 10px',fontSize:10.5,maxHeight:140,overflow:'auto',fontFamily:'monospace',color:'var(--text-secondary)',lineHeight:1.4}}>{parseResult.preview}</pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {stage === 'rules' && (
+          <div className="modal-body">
+            <div style={{fontSize:12.5, color:'var(--text-secondary)', marginBottom:12, lineHeight:1.5}}>
+              Build conditions to assign incoming <strong>{name || 'leads'}</strong> using the {parseResult?.fields.length || 0} fields detected from your sample.
+            </div>
+            <LeadFilterEditor
+              fields={parseResult?.fields || []}
+              filters={filters}
+              onChange={setFilters}
+            />
+          </div>
+        )}
+
+        <div className="modal-footer">
+          {stage === 'config' && (
+            <>
+              <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                disabled={!canBuildRules}
+                onClick={() => canBuildRules && setStage('rules')}
+                style={{opacity: canBuildRules ? 1 : 0.5, cursor: canBuildRules ? 'pointer' : 'not-allowed'}}>
+                Build Lead Assignment Rules <Icon name="chevronRight" size={12}/>
+              </button>
+              <button
+                className="btn"
+                disabled={!canBuildRules}
+                onClick={() => canBuildRules && handleSave()}
+                style={{opacity: canBuildRules ? 1 : 0.5, cursor: canBuildRules ? 'pointer' : 'not-allowed', background:'transparent', border:'1px solid var(--border)', color:'var(--text-secondary)'}}>
+                Save (no rules)
+              </button>
+            </>
+          )}
+          {stage === 'rules' && (
+            <>
+              <button className="btn btn-ghost" onClick={() => setStage('config')}>
+                <Icon name="chevronRight" size={12} style={{transform:'rotate(180deg)'}}/> Back
+              </button>
+              <button className="btn btn-primary" onClick={handleSave}>Save Lead Provider</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── View / manage existing Lead Providers ─────────────────────────────────────
+const ViewLeadProvidersModal = ({ providers, onClose, onUpdate, onDelete, onAddNew }) => {
+  const [selectedId, setSelectedId] = useState(providers[0]?.id || null);
+  const selected = providers.find(p => p.id === selectedId) || null;
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('');
+
+  // Keep selection valid when providers change
+  useEffect(() => {
+    if (selectedId == null && providers.length > 0) setSelectedId(providers[0].id);
+    if (selectedId != null && !providers.find(p => p.id === selectedId)) {
+      setSelectedId(providers[0]?.id || null);
+    }
+  }, [providers, selectedId]);
+
+  const startEditName = () => { setDraftName(selected?.name || ''); setEditingName(true); };
+  const commitName = () => {
+    if (selected && draftName.trim()) onUpdate(selected.id, { name: draftName.trim() });
+    setEditingName(false);
+  };
+  const handleDelete = () => {
+    if (!selected) return;
+    if (window.confirm(`Delete lead provider "${selected.name}"?`)) {
+      onDelete(selected.id);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{width:860, maxWidth:'94vw'}}>
+        <div className="modal-header">
+          <div className="modal-title">Lead Providers</div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <button className="btn btn-primary" style={{padding:'6px 10px',fontSize:12}} onClick={onAddNew}>
+              <Icon name="plus" size={12}/> Add New
+            </button>
+            <button className="btn btn-icon" onClick={onClose}><Icon name="close" size={14}/></button>
+          </div>
+        </div>
+        <div className="modal-body" style={{padding:0, display:'grid', gridTemplateColumns:'240px 1fr', minHeight:440, maxHeight:'70vh'}}>
+          {/* Sidebar — provider list */}
+          <div style={{borderRight:'1px solid var(--border)', overflowY:'auto', background:'var(--input-bg)'}}>
+            {providers.length === 0 && (
+              <div style={{padding:20, fontSize:12.5, color:'var(--text-tertiary)', textAlign:'center'}}>
+                No lead providers yet. Click <strong>Add New</strong> to get started.
+              </div>
+            )}
+            {providers.map(p => (
+              <div key={p.id}
+                onClick={() => { setSelectedId(p.id); setEditingName(false); }}
+                style={{
+                  padding:'12px 14px',
+                  borderBottom:'1px solid var(--border)',
+                  cursor:'pointer',
+                  background: selectedId === p.id ? 'var(--accent-light)' : 'transparent',
+                  borderLeft: selectedId === p.id ? '3px solid var(--accent)' : '3px solid transparent',
+                }}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:14}}>📥</span>
+                  <div style={{flex:1, overflow:'hidden'}}>
+                    <div style={{fontSize:13, fontWeight:600, color: selectedId === p.id ? 'var(--accent)' : 'var(--text-primary)', overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
+                    <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2, textTransform:'uppercase', letterSpacing:'0.04em'}}>
+                      {p.dataType === 'adf' ? 'ADF XML' : 'JSON'} · {(p.filters || []).length} rule{(p.filters || []).length === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Main pane */}
+          <div style={{overflowY:'auto', padding:'var(--space-lg)'}}>
+            {!selected && (
+              <div style={{padding:'40px 20px', fontSize:13, color:'var(--text-tertiary)', textAlign:'center'}}>
+                {providers.length === 0
+                  ? 'Add a lead provider to get started.'
+                  : 'Select a provider from the list to view or edit.'}
+              </div>
+            )}
+            {selected && (
+              <>
+                {/* Name + meta */}
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                  {editingName ? (
+                    <>
+                      <input
+                        className="form-input"
+                        autoFocus
+                        value={draftName}
+                        onChange={e => setDraftName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') setEditingName(false); }}
+                        style={{fontSize:15, fontWeight:600, padding:'4px 8px', maxWidth:340}}
+                      />
+                      <button className="btn btn-primary" style={{padding:'4px 10px',fontSize:12}} onClick={commitName}>Save</button>
+                      <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:12}} onClick={() => setEditingName(false)}>Cancel</button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{fontFamily:'var(--font-display)', fontSize:18, fontWeight:600}}>{selected.name}</div>
+                      <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:11.5}} onClick={startEditName}>
+                        <Icon name="edit" size={11}/> Rename
+                      </button>
+                      <div style={{flex:1}}/>
+                      <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:11.5,color:'#ef4444',borderColor:'rgba(239,68,68,0.35)'}} onClick={handleDelete}>
+                        <Icon name="trash" size={11}/> Delete
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div style={{fontSize:12, color:'var(--text-tertiary)', marginBottom:'var(--space-lg)'}}>
+                  {selected.dataType === 'adf' ? 'ADF XML' : 'JSON'} · {selected.fields.length} fields · {selected.sampleFileName || 'pasted sample'}
+                </div>
+
+                <div className="builder-panel-title" style={{padding:0,marginBottom:8}}>Assignment Rules</div>
+                <LeadFilterEditor
+                  fields={selected.fields}
+                  filters={selected.filters || []}
+                  onChange={(next) => onUpdate(selected.id, { filters: next })}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── PIPELINES SCREEN ────────────────────────────────────────────────────────
-const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegration }) => {
+const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegration, leadProviders = [], onAddLeadProvider, onUpdateLeadProvider, onDeleteLeadProvider }) => {
   const [appointments, setAppointments] = useState(CX_APPOINTMENTS_INIT);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [tab, setTab] = useState('files'); // 'files' | 'integrations'
+  const [showAddLeadProvider, setShowAddLeadProvider] = useState(false);
+  const [showViewLeadProviders, setShowViewLeadProviders] = useState(false);
   const fileRef = useRef(null);
 
   const onFileChange = (e) => {
@@ -4333,6 +5163,13 @@ const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegrati
   const isEnabled = (id) => enabledIntegrations.includes(id);
   const handleIntegrationClick = (intg) => {
     if (intg.comingSoon) return;
+    // Lead Providers tile opens its own manager UI inside Pipelines — do not
+    // navigate to Data Sources because lead providers aren't a db source.
+    if (intg.isLeadProviders) {
+      if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id);
+      setShowViewLeadProviders(true);
+      return;
+    }
     if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id);
     // Navigate to Data Sources with this integration's table selected
     if (intg.dbDef) navigate && navigate('datasources', { dbId: intg.dbDef.id });
@@ -4474,30 +5311,72 @@ const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegrati
                     <div style={{fontFamily:'var(--font-display)', fontSize:'15px', fontWeight:600, color:'var(--text-primary)'}}>{intg.name}</div>
                     <div style={{fontSize:'12.5px', color:'var(--text-secondary)', lineHeight:1.45, flex:1}}>{intg.desc}</div>
 
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10}}>
-                      <span style={{fontSize:'11px',color:'var(--text-tertiary)',fontFamily:'monospace'}}>
-                        {enabled ? 'Active' : disabled ? '—' : 'One-click connect'}
-                      </span>
-                      {!disabled && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleIntegrationClick(intg); }}
-                          className={enabled ? '' : 'cx-btn-primary'}
-                          style={enabled ? {
-                            background:'transparent', color:intg.color, border:`1px solid ${intg.color}55`,
-                            borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:600, cursor:'pointer',
-                            display:'inline-flex', alignItems:'center', gap:4,
-                          } : { padding:'6px 12px', fontSize:12 }}
-                        >
-                          {enabled ? <>View data <Icon name="chevronRight" size={11}/></> : <>Connect</>}
-                        </button>
-                      )}
-                    </div>
+                    {intg.isLeadProviders ? (
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,gap:6}}>
+                        <span style={{fontSize:'11px',color:'var(--text-tertiary)',fontFamily:'monospace'}}>
+                          {leadProviders.length} configured
+                        </span>
+                        <div style={{display:'flex',gap:6}}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id); setShowViewLeadProviders(true); }}
+                            style={{
+                              background:'transparent', color:intg.color, border:`1px solid ${intg.color}55`,
+                              borderRadius:8, padding:'6px 10px', fontSize:11.5, fontWeight:600, cursor:'pointer',
+                              display:'inline-flex', alignItems:'center', gap:4,
+                            }}>
+                            View Lead Providers
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id); setShowAddLeadProvider(true); }}
+                            className="cx-btn-primary"
+                            style={{padding:'6px 10px', fontSize:11.5}}>
+                            <Icon name="plus" size={11}/> Add New
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10}}>
+                        <span style={{fontSize:'11px',color:'var(--text-tertiary)',fontFamily:'monospace'}}>
+                          {enabled ? 'Active' : disabled ? '—' : 'One-click connect'}
+                        </span>
+                        {!disabled && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleIntegrationClick(intg); }}
+                            className={enabled ? '' : 'cx-btn-primary'}
+                            style={enabled ? {
+                              background:'transparent', color:intg.color, border:`1px solid ${intg.color}55`,
+                              borderRadius:8, padding:'6px 12px', fontSize:12, fontWeight:600, cursor:'pointer',
+                              display:'inline-flex', alignItems:'center', gap:4,
+                            } : { padding:'6px 12px', fontSize:12 }}
+                          >
+                            {enabled ? <>View data <Icon name="chevronRight" size={11}/></> : <>Connect</>}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
         </div>
+      )}
+
+      {/* ── Lead Providers modals ── */}
+      {showAddLeadProvider && (
+        <AddLeadProviderModal
+          onClose={() => setShowAddLeadProvider(false)}
+          onSave={(provider) => { onAddLeadProvider && onAddLeadProvider(provider); setShowAddLeadProvider(false); }}
+        />
+      )}
+      {showViewLeadProviders && (
+        <ViewLeadProvidersModal
+          providers={leadProviders}
+          onClose={() => setShowViewLeadProviders(false)}
+          onUpdate={onUpdateLeadProvider}
+          onDelete={onDeleteLeadProvider}
+          onAddNew={() => { setShowViewLeadProviders(false); setShowAddLeadProvider(true); }}
+        />
       )}
     </div>
   );
@@ -13516,6 +14395,29 @@ const App = () => {
       return next;
     });
   }, []);
+
+  // ── Lead Providers (Pipelines → Integrations → Lead Providers) ─────────────
+  // Each provider: { id, name, dataType:'adf'|'json', fields:[{path, type}],
+  // sample:string, filters:Filter[] (same shape as Report Builder step 3).
+  const [leadProviders, setLeadProviders] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cx_lead_providers') || '[]'); }
+    catch { return []; }
+  });
+  const persistLeadProviders = useCallback((next) => {
+    try { localStorage.setItem('cx_lead_providers', JSON.stringify(next)); } catch {}
+    return next;
+  }, []);
+  const handleAddLeadProvider = useCallback((provider) => {
+    setLeadProviders(prev => persistLeadProviders([...prev, provider]));
+  }, [persistLeadProviders]);
+  const handleUpdateLeadProvider = useCallback((id, patch) => {
+    setLeadProviders(prev => persistLeadProviders(
+      prev.map(p => p.id === id ? { ...p, ...patch } : p)
+    ));
+  }, [persistLeadProviders]);
+  const handleDeleteLeadProvider = useCallback((id) => {
+    setLeadProviders(prev => persistLeadProviders(prev.filter(p => p.id !== id)));
+  }, [persistLeadProviders]);
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [styleOpen, setStyleOpen] = useState(false);
 
@@ -13611,7 +14513,7 @@ const App = () => {
     switch (screen) {
       // ── Convergence top-level sections ──
       case 'home':        return <HomeScreen tweaks={tweaks}/>;
-      case 'pipelines':   return <PipelinesScreen navigate={navigate} enabledIntegrations={enabledIntegrations} onEnableIntegration={handleEnableIntegration}/>;
+      case 'pipelines':   return <PipelinesScreen navigate={navigate} enabledIntegrations={enabledIntegrations} onEnableIntegration={handleEnableIntegration} leadProviders={leadProviders} onAddLeadProvider={handleAddLeadProvider} onUpdateLeadProvider={handleUpdateLeadProvider} onDeleteLeadProvider={handleDeleteLeadProvider}/>;
       case 'portfolio':   return <PortfolioScreen/>;
       case 'touchpoints': return <TouchPointsScreen/>;
       case 'weave':       return <WeaveScreen/>;
