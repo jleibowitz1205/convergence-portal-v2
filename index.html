@@ -4108,7 +4108,7 @@ const INVENTORY_DATASOURCE = {
 const INTEGRATIONS_CATALOG = [
   { id:'inventory',     name:'Inventory',     icon:'🚗', color:'#5E10BC', desc:'Bring in your inventory right from your website',   dbDef: INVENTORY_DATASOURCE },
   { id:'dms',           name:'DMS Sync',      icon:'🗄️', color:'#0ea5e9', desc:'Sync transactions and repair orders from your DMS', comingSoon:true },
-  { id:'leadproviders', name:'Lead Providers', icon:'📥', color:'#22c55e', desc:'Configure inbound lead feeds and build assignment rules', isLeadProviders:true },
+  { id:'leadproviders', name:'Lead Providers', icon:'📥', color:'#22c55e', desc:'Spin up a dedicated inbound email endpoint for each lead source', isLeadProviders:true },
 ];
 
 // ─── CONVERGENCE PORTAL DATA (Pipelines / Portfolio / TouchPoints / Weave) ───
@@ -4315,605 +4315,128 @@ const CX_CUSTOMERS = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  LEAD PROVIDERS — modals invoked from the Pipelines → Integrations tab.
-//  Two modals: AddLeadProviderModal (create) and ViewLeadProvidersModal (manage).
-//  Filter editor mirrors the Report Builder step 3 (filter rows + groups,
-//  scoped and/or junction, drag-to-reorder, op set by column type) — but the
-//  field list comes from a parsed sample file (ADF XML or JSON) instead of a
-//  data-source table.
+//  LEAD PROVIDERS — invoked from Pipelines → Integrations.
+//  Each provider gets a dedicated inbound endpoint of the form
+//    leads.convergenceauto.com/{clientKey}/{slug}
+//  Senders (Edmunds, CarGurus, etc) post ADF XML to that endpoint and the
+//  submissions show up in the View modal. No filters, no field extraction —
+//  routing is determined by which slug the message hit.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Flatten a JSON value into a list of {path, type} field descriptors.
-// Nested objects/arrays are walked with dot notation. Arrays use the first
-// element as the prototype (e.g. items.0.name → "items[].name" feels nicer
-// but we keep dot notation for parity with everyday flatten libs).
-const flattenJsonFields = (value, prefix = '', acc = [], seen = new Set()) => {
-  if (value === null || value === undefined) {
-    acc.push({ path: prefix || '(root)', type: 'str' });
-    return acc;
-  }
-  const t = typeof value;
-  if (t === 'string')  { acc.push({ path: prefix || '(root)', type: 'str'  }); return acc; }
-  if (t === 'number')  { acc.push({ path: prefix || '(root)', type: 'num'  }); return acc; }
-  if (t === 'boolean') { acc.push({ path: prefix || '(root)', type: 'str'  }); return acc; }
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      acc.push({ path: (prefix || '(root)') + '[]', type: 'str' });
-      return acc;
-    }
-    // Use the first item as the prototype for nested keys.
-    flattenJsonFields(value[0], (prefix || '(root)') + '[]', acc, seen);
-    return acc;
-  }
-  if (t === 'object') {
-    const keys = Object.keys(value);
-    if (keys.length === 0) {
-      acc.push({ path: prefix || '(root)', type: 'str' });
-      return acc;
-    }
-    keys.forEach(k => {
-      const next = prefix ? `${prefix}.${k}` : k;
-      if (seen.has(next)) return;
-      seen.add(next);
-      flattenJsonFields(value[k], next, acc, seen);
-    });
-    return acc;
-  }
-  acc.push({ path: prefix || '(root)', type: 'str' });
-  return acc;
+// Normalize a free-text provider name into a slug. Lowercase, spaces → '_',
+// strip anything that wouldn't be safe in a URL path segment.
+const slugifyProviderName = (name) => {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_\s-]+/g, '')   // drop punctuation
+    .replace(/[\s-]+/g, '_')          // spaces & hyphens → underscore
+    .replace(/_+/g, '_')              // collapse runs
+    .replace(/^_|_$/g, '');           // trim leading/trailing underscores
 };
 
-// Heuristic: infer column type from a string value.
-const inferTypeFromString = (v) => {
-  if (v == null) return 'str';
-  const s = String(v).trim();
-  if (s === '') return 'str';
-  if (/^-?\d+(\.\d+)?$/.test(s)) return 'num';
-  // Common date shapes (ISO-ish or YYYY-MM-DD) → date
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return 'date';
-  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s)) return 'date';
-  return 'str';
+// Derive a stable-looking client key from the active dealer name.
+// In a real backend this would come from an authenticated account record;
+// for the demo we hash the dealer string to a short alphanumeric key.
+const deriveClientKey = (dealer) => {
+  const s = String(dealer || 'default');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  const positive = Math.abs(h).toString(36).toUpperCase().padStart(6, '0').slice(0, 6);
+  return `CK${positive}`;
 };
 
-// Walk an XML Element and emit {path, type} for every leaf element + every
-// attribute. Path uses slash notation rooted at the XML root tag.
-const flattenXmlFields = (node, prefix, acc, seenPaths) => {
-  if (!node) return acc;
-  // Attributes on this node
-  if (node.attributes) {
-    for (let i = 0; i < node.attributes.length; i++) {
-      const a = node.attributes[i];
-      const p = `${prefix}@${a.name}`;
-      if (!seenPaths.has(p)) {
-        seenPaths.add(p);
-        acc.push({ path: p, type: inferTypeFromString(a.value) });
-      }
-    }
-  }
-  // Child elements
-  const childElements = Array.from(node.children || []);
-  if (childElements.length === 0) {
-    // Leaf — emit with the text content's inferred type
-    const txt = (node.textContent || '').trim();
-    if (!seenPaths.has(prefix)) {
-      seenPaths.add(prefix);
-      acc.push({ path: prefix, type: inferTypeFromString(txt) });
-    }
-    return acc;
-  }
-  childElements.forEach(child => {
-    flattenXmlFields(child, `${prefix}/${child.tagName}`, acc, seenPaths);
+// Endpoint for a given (clientKey, slug). Kept as a function so the base
+// host is changeable in one place if the brand domain ever changes.
+const leadProviderEndpoint = (clientKey, slug) =>
+  `leads.convergenceauto.com/${clientKey}/${slug}`;
+
+// Ensure the slug is unique within the current set of providers for this
+// dealer. If a clash exists, append _2, _3, etc.
+const ensureUniqueSlug = (desired, existing) => {
+  const taken = new Set((existing || []).map(p => p.slug));
+  if (!taken.has(desired)) return desired;
+  let i = 2;
+  while (taken.has(`${desired}_${i}`)) i++;
+  return `${desired}_${i}`;
+};
+
+// Build a few seed submissions so newly-created demo providers don't open
+// to an empty pane. Real providers in production would start empty.
+const buildSeedSubmissions = (providerName) => {
+  const now = Date.now();
+  const samples = [
+    { firstName:'Sarah',   lastName:'Johnson',  email:'sarah.j@email.com',     phone:'+15558472910', year:'2024', make:'Honda',   model:'CR-V Hybrid', interest:'new'  },
+    { firstName:'Marcus',  lastName:'Chen',     email:'mchen@gmail.com',       phone:'+15553319088', year:'2022', make:'Toyota',  model:'Tacoma',      interest:'used' },
+    { firstName:'Priya',   lastName:'Patel',    email:'priya.patel@me.com',    phone:'+15558810432', year:'2025', make:'Ford',    model:'F-150',       interest:'new'  },
+  ];
+  return samples.map((s, i) => {
+    const ts = new Date(now - (i + 1) * 1000 * 60 * 60 * (4 + i * 7));
+    const isoTs = ts.toISOString();
+    const raw =
+`<?xml version="1.0"?>
+<?adf version="1.0"?>
+<adf>
+  <prospect>
+    <id sequence="${100 + i}" source="${providerName}"/>
+    <requestdate>${isoTs}</requestdate>
+    <vehicle interest="${s.interest}" status="new">
+      <year>${s.year}</year>
+      <make>${s.make}</make>
+      <model>${s.model}</model>
+    </vehicle>
+    <customer>
+      <contact>
+        <name part="first">${s.firstName}</name>
+        <name part="last">${s.lastName}</name>
+        <email>${s.email}</email>
+        <phone type="mobile">${s.phone}</phone>
+      </contact>
+    </customer>
+    <provider>
+      <name part="full">${providerName}</name>
+      <service>Lead Submission</service>
+    </provider>
+  </prospect>
+</adf>`;
+    return {
+      id: now - i * 1000 - Math.floor(Math.random() * 999),
+      receivedAt: ts.getTime(),
+      from: `noreply@${slugifyProviderName(providerName)}.com`,
+      subject: `New Lead — ${s.firstName} ${s.lastName} — ${s.year} ${s.make} ${s.model}`,
+      summary: `${s.firstName} ${s.lastName} · ${s.year} ${s.make} ${s.model}`,
+      raw,
+    };
   });
-  return acc;
 };
 
-// Pre-clean ADF/XML text before handing to DOMParser. Real-world ADF feeds
-// often contain quirks the strict XML parser rejects:
-//   • Leading whitespace/BOM before <?xml … ?>
-//   • Extra processing instructions (e.g. <?ADF version="1.0"?>) sitting
-//     between the XML declaration and the root element
-//   • Attribute writing like `interest ="trade-in"` (space before `=`)
-//   • Stray ampersands that aren't proper entities
-// We normalize what we safely can and surface a useful error for the rest.
-const sanitizeAdfXml = (raw) => {
-  if (typeof raw !== 'string') return '';
-  let s = raw.replace(/^\uFEFF/, '').replace(/^\s+/, '');
-
-  // Extract and remove the XML declaration so we can also strip any other
-  // processing instructions that follow it. Then reattach the declaration.
-  let declaration = '';
-  const declMatch = s.match(/^<\?xml\b[^?]*\?>/i);
-  if (declMatch) {
-    declaration = declMatch[0];
-    s = s.slice(declMatch[0].length);
+const formatSubmissionTime = (ts) => {
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) {
+    return d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
   }
-  // Strip any further processing instructions (e.g. <?ADF version="1.0"?>)
-  // that appear before the root element. The XML spec allows these but
-  // browsers' DOMParser treats <?xml ... ?> elsewhere as fatal, and many
-  // real feeds include non-standard PIs that confuse downstream tooling.
-  s = s.replace(/<\?[^?>]*\?>/g, '');
-
-  // Normalize attribute writing: `name ="value"` → `name="value"`
-  // (DOMParser does accept this, but some ADF samples in the wild also have
-  // missing quotes or other quirks; this pass handles the common one.)
-  s = s.replace(/([A-Za-z_][\w:.-]*)\s+=\s*"/g, '$1="');
-  s = s.replace(/([A-Za-z_][\w:.-]*)\s+=\s*'/g, "$1='");
-
-  // Replace bare ampersands (not part of an entity) with &amp; so the
-  // parser doesn't fail on free-text content like comments / URLs.
-  s = s.replace(/&(?!(?:[a-zA-Z]+|#[0-9]+|#x[0-9a-fA-F]+);)/g, '&amp;');
-
-  return (declaration ? declaration + '\n' : '') + s.trimStart();
-};
-
-const parseAdfXml = (text) => {
-  const cleaned = sanitizeAdfXml(text);
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(cleaned, 'application/xml');
-    const err = doc.querySelector('parsererror');
-    if (err) {
-      // The parsererror element nests messy <div>/<h3>/<sourcetext> children.
-      // Pull just the first informative line for the UI.
-      const msg = (err.textContent || 'XML parse error')
-        .replace(/\s+/g, ' ')
-        .replace(/^This page contains the following errors:\s*/i, '')
-        .trim();
-      return { ok: false, error: msg.slice(0, 280), fields: [], preview: cleaned };
-    }
-    const root = doc.documentElement;
-    if (!root || root.nodeName === 'parsererror') {
-      return { ok: false, error: 'Invalid XML — no root element found', fields: [], preview: cleaned };
-    }
-    const fields = [];
-    flattenXmlFields(root, root.tagName, fields, new Set());
-    let pretty = cleaned;
-    try {
-      const serializer = new XMLSerializer();
-      pretty = serializer.serializeToString(doc);
-    } catch (_) {}
-    return { ok: true, error: null, fields, preview: pretty };
-  } catch (e) {
-    return { ok: false, error: String(e.message || e), fields: [], preview: cleaned };
-  }
-};
-
-const parseLeadJson = (text) => {
-  try {
-    const obj = JSON.parse(text);
-    const fields = flattenJsonFields(obj);
-    // de-dup (object cycles already protected by `seen`, but doubles can sneak in for arrays)
-    const seen = new Set();
-    const deduped = [];
-    fields.forEach(f => { if (!seen.has(f.path)) { seen.add(f.path); deduped.push(f); }});
-    return { ok: true, error: null, fields: deduped, preview: JSON.stringify(obj, null, 2) };
-  } catch (e) {
-    return { ok: false, error: String(e.message || e), fields: [], preview: text };
-  }
-};
-
-// ── Filter editor — identical shape & behaviour to Report Builder step 3.
-// Takes `fields` (from the parsed sample) as the column list, and surfaces
-// onChange(filters). Self-contained: drag-to-reorder, scoped junctions,
-// groups, op set keyed by column type.
-const LeadFilterEditor = ({ fields, filters, onChange }) => {
-  const OPS = {
-    str:  ['contains','does not contain','is','is not','starts with','ends with','is empty','is not empty'],
-    num:  ['=','≠','>','<','≥','≤','is empty','is not empty'],
-    date: ['is','is before','is after','is on or before','is on or after','is within','is empty','is not empty'],
-  };
-  const NO_VALUE_OPS = ['is empty','is not empty'];
-
-  const [filterDragId, setFilterDragId] = useState(null);
-  const [filterDropTarget, setFilterDropTarget] = useState(null);
-
-  const allCols = (fields && fields.length > 0)
-    ? fields.map(f => ({ name: f.path, type: f.type || 'str' }))
-    : [{ name:'(upload a sample to see fields)', type:'str' }];
-
-  const setFilters = (updater) => {
-    const next = typeof updater === 'function' ? updater(filters) : updater;
-    onChange(next);
-  };
-
-  const updateFilter = (id, patch) => setFilters(prev =>
-    prev.map(f => f.id === id ? {...f,...patch}
-      : f.type === 'group' ? {...f, conditions: f.conditions.map(c => c.id===id ? {...c,...patch} : c)} : f
-    )
-  );
-
-  const setTopLevelJunction = (j) => setFilters(prev =>
-    prev.map((f, i) => i === 0 ? f : {...f, junction: j})
-  );
-  const setGroupJunction = (groupId, j) => setFilters(prev =>
-    prev.map(g => g.id === groupId && g.type === 'group'
-      ? {...g, conditions: g.conditions.map((c, i) => i === 0 ? c : {...c, junction: j})}
-      : g
-    )
-  );
-  const topLevelJunction = (filters.find((_, i) => i === 1)?.junction) || 'and';
-  const removeFilter = (id) => setFilters(prev =>
-    prev.filter(f => f.id !== id).map(f =>
-      f.type === 'group' ? {...f, conditions: f.conditions.filter(c => c.id !== id)} : f
-    )
-  );
-  const removeGroup = (id) => setFilters(prev => prev.filter(f => f.id !== id));
-  const addConditionToGroup = (groupId) => {
-    const colDef = allCols[0];
-    setFilters(prev => prev.map(f => {
-      if (f.id !== groupId) return f;
-      const grpJunction = (f.conditions[1]?.junction) || f.conditions[0]?.junction || 'and';
-      return {...f, conditions:[...f.conditions, {id:Date.now()+Math.random(), col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:grpJunction}]};
-    }));
-  };
-  const makeFilter = (col) => {
-    const colDef = allCols.find(c => c.name === col) || allCols[0];
-    return {id:Date.now()+Math.random(), type:'filter', col:colDef.name, colType:colDef.type, op:OPS[colDef.type][0], val:'', junction:topLevelJunction};
-  };
-  const makeGroup = () => ({
-    id:Date.now()+Math.random(), type:'group',
-    junction:topLevelJunction,
-    conditions:[],
-  });
-
-  const reorderTopLevelFilter = (sourceId, targetId, position) => {
-    if (sourceId === targetId) return;
-    setFilters(prev => {
-      const fromIdx = prev.findIndex(f => f.id === sourceId);
-      if (fromIdx === -1) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(fromIdx, 1);
-      let insertAt = next.findIndex(f => f.id === targetId);
-      if (insertAt === -1) insertAt = next.length;
-      if (position === 'after') insertAt += 1;
-      next.splice(insertAt, 0, moved);
-      return next;
-    });
-  };
-  const reorderConditionInGroup = (groupId, sourceId, targetId, position) => {
-    if (sourceId === targetId) return;
-    setFilters(prev => prev.map(g => {
-      if (g.id !== groupId || g.type !== 'group') return g;
-      const fromIdx = g.conditions.findIndex(c => c.id === sourceId);
-      if (fromIdx === -1) return g;
-      const nextConds = [...g.conditions];
-      const [moved] = nextConds.splice(fromIdx, 1);
-      let insertAt = nextConds.findIndex(c => c.id === targetId);
-      if (insertAt === -1) insertAt = nextConds.length;
-      if (position === 'after') insertAt += 1;
-      nextConds.splice(insertAt, 0, moved);
-      return { ...g, conditions: nextConds };
-    }));
-  };
-  const calcDropPosition = (e, currentPos) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = (e.clientY - rect.top) / rect.height;
-    if (currentPos === 'before' && ratio < 0.6) return 'before';
-    if (currentPos === 'after'  && ratio > 0.4) return 'after';
-    return ratio < 0.5 ? 'before' : 'after';
-  };
-  const endFilterDrag = () => { setFilterDragId(null); setFilterDropTarget(null); };
-
-  const renderFilterRow = (f, isFirst, onJunctionChange, onRemove, parentGroupId = null, scopeIndex = 0, scopeJunction = 'and') => {
-    const ops = OPS[f.colType] || OPS.str;
-    const noVal = NO_VALUE_OPS.includes(f.op);
-    const isDraggingThis = filterDragId === f.id;
-    const isDropTarget   = filterDropTarget?.id === f.id;
-    const dropPos        = filterDropTarget?.position;
-    return (
-      <div key={f.id}
-        onDragOver={e => {
-          if (filterDragId && filterDragId !== f.id) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
-            const pos = calcDropPosition(e, prevPos);
-            if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
-              setFilterDropTarget({ id: f.id, position: pos });
-            }
-          }
-        }}
-        onDrop={e => {
-          e.preventDefault();
-          if (!filterDragId || filterDragId === f.id) { endFilterDrag(); return; }
-          const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
-          const pos = calcDropPosition(e, prevPos);
-          if (parentGroupId) reorderConditionInGroup(parentGroupId, filterDragId, f.id, pos);
-          else               reorderTopLevelFilter(filterDragId, f.id, pos);
-          endFilterDrag();
-        }}
-        style={{
-          display:'flex',alignItems:'center',gap:5,flexWrap:'nowrap',
-          position:'relative',
-          opacity: isDraggingThis ? 0.4 : 1,
-          margin:'2px 0',
-          padding:'2px 0',
-          borderRadius:4,
-          background: isDropTarget ? 'var(--accent-light)' : 'transparent',
-          boxShadow: isDropTarget && dropPos === 'before' ? 'inset 0 2px 0 0 var(--accent)'
-                   : isDropTarget && dropPos === 'after'  ? 'inset 0 -2px 0 0 var(--accent)'
-                   : 'none',
-          transition: 'opacity 0.12s, background 0.1s',
-        }}>
-        {isFirst
-          ? <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,width:42,flexShrink:0}}>Where</span>
-          : scopeIndex === 1
-            ? <div style={{position:'relative',flexShrink:0}}>
-                <select value={scopeJunction} onChange={e=>onJunctionChange(e.target.value)}
-                  title="Connector applies to all conditions in this group"
-                  style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
-                  <option value="and">and</option>
-                  <option value="or">or</option>
-                </select>
-                <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
-              </div>
-            : <span title="Connector is shared — change it on the first connector above"
-                style={{fontSize:'11px',fontWeight:600,color:'var(--text-tertiary)',width:52,flexShrink:0,textAlign:'center',padding:'3px 0',border:'1px solid transparent'}}>
-                {scopeJunction}
-              </span>
-        }
-        <div style={{position:'relative',flexShrink:0,minWidth:80,flex:'0 0 32%'}}>
-          <select className="form-input" style={{padding:'3px 18px 3px 7px',fontSize:'12px',width:'100%',appearance:'none',fontWeight:500}}
-            value={f.col}
-            onChange={e=>{
-              const cd=allCols.find(c=>c.name===e.target.value)||allCols[0];
-              updateFilter(f.id,{col:e.target.value,colType:cd.type,op:OPS[cd.type][0],val:''});
-            }}>
-            {allCols.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
-          </select>
-          <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
-        </div>
-        <div style={{position:'relative',flexShrink:0,minWidth:70,flex:'0 0 22%'}}>
-          <select className="form-input" style={{padding:'3px 18px 3px 7px',fontSize:'12px',width:'100%',appearance:'none'}}
-            value={f.op}
-            onChange={e=>updateFilter(f.id,{op:e.target.value,val:''})}>
-            {ops.map(o=><option key={o} value={o}>{o}</option>)}
-          </select>
-          <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
-        </div>
-        {!noVal && (
-          f.colType==='date'
-            ? <input type="date" className="form-input" style={{flex:1,minWidth:80,padding:'3px 7px',fontSize:'12px'}} value={f.val} onChange={e=>updateFilter(f.id,{val:e.target.value})}/>
-            : f.colType==='num'
-              ? <input type="number" className="form-input" style={{flex:1,minWidth:60,padding:'3px 7px',fontSize:'12px'}} value={f.val} onChange={e=>updateFilter(f.id,{val:e.target.value})} placeholder="number"/>
-              : <input className="form-input" style={{flex:1,minWidth:60,padding:'3px 7px',fontSize:'12px'}} value={f.val} onChange={e=>updateFilter(f.id,{val:e.target.value})} placeholder="value"/>
-        )}
-        <button style={{background:'none',border:'none',color:'var(--text-tertiary)',cursor:'pointer',padding:'3px 2px',flexShrink:0,display:'flex',alignItems:'center'}}
-          title="Remove" onClick={()=>onRemove(f.id)}>
-          <Icon name="trash" size={13}/>
-        </button>
-        <span
-          draggable
-          onDragStart={e => {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', String(f.id));
-            setFilterDragId(f.id);
-          }}
-          onDragEnd={endFilterDrag}
-          title="Drag to reorder"
-          style={{
-            color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',
-            fontSize:'15px',
-            cursor: filterDragId ? 'grabbing' : 'grab',
-            flexShrink:0,lineHeight:1,userSelect:'none',
-            padding:'4px 6px',
-            borderRadius:4,
-          }}
-        >⠿</span>
-      </div>
-    );
-  };
-
-  return (
-    <div>
-      {filters.length > 0 && (
-        <div style={{fontSize:'12px',color:'var(--text-secondary)',marginBottom:10,fontStyle:'italic'}}>
-          In this view, route leads where
-        </div>
-      )}
-
-      {filters.map((f, idx) => {
-        const isFirst = idx === 0;
-        if (f.type === 'filter') {
-          return renderFilterRow(
-            f, isFirst,
-            j => setTopLevelJunction(j),
-            removeFilter,
-            null,
-            idx,
-            topLevelJunction
-          );
-        }
-        if (f.type === 'group') {
-          const isDraggingThis = filterDragId === f.id;
-          const isDropTarget   = filterDropTarget?.id === f.id;
-          const dropPos        = filterDropTarget?.position;
-          return (
-            <div key={f.id}
-              onDragOver={e => {
-                if (filterDragId && filterDragId !== f.id) {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
-                  const pos = calcDropPosition(e, prevPos);
-                  if (filterDropTarget?.id !== f.id || filterDropTarget?.position !== pos) {
-                    setFilterDropTarget({ id: f.id, position: pos });
-                  }
-                }
-              }}
-              onDrop={e => {
-                e.preventDefault();
-                if (!filterDragId || filterDragId === f.id) { endFilterDrag(); return; }
-                const prevPos = filterDropTarget?.id === f.id ? filterDropTarget.position : null;
-                const pos = calcDropPosition(e, prevPos);
-                reorderTopLevelFilter(filterDragId, f.id, pos);
-                endFilterDrag();
-              }}
-              style={{
-                margin:'2px 0',
-                padding:'2px',
-                borderRadius:6,
-                opacity: isDraggingThis ? 0.4 : 1,
-                background: isDropTarget ? 'var(--accent-light)' : 'transparent',
-                boxShadow: isDropTarget && dropPos === 'before' ? 'inset 0 2px 0 0 var(--accent)'
-                         : isDropTarget && dropPos === 'after'  ? 'inset 0 -2px 0 0 var(--accent)'
-                         : 'none',
-                transition: 'opacity 0.12s, background 0.1s',
-              }}>
-              <div style={{display:'flex',alignItems:'flex-start',gap:5,marginBottom:4}}>
-                {isFirst
-                  ? <span style={{fontSize:'12px',color:'var(--text-tertiary)',fontWeight:500,width:42,flexShrink:0,paddingTop:6}}>Where</span>
-                  : idx === 1
-                    ? <div style={{position:'relative',flexShrink:0,paddingTop:3}}>
-                        <select value={topLevelJunction} onChange={e=>setTopLevelJunction(e.target.value)}
-                          style={{padding:'3px 18px 3px 7px',fontSize:'11px',fontWeight:600,border:'1px solid var(--border)',borderRadius:4,cursor:'pointer',background:'var(--card-bg)',color:'var(--text-secondary)',appearance:'none',width:52}}>
-                          <option value="and">and</option>
-                          <option value="or">or</option>
-                        </select>
-                        <Icon name="chevronDown" size={10} style={{position:'absolute',right:4,top:'50%',transform:'translateY(-50%)',pointerEvents:'none',color:'var(--text-tertiary)'}}/>
-                      </div>
-                    : <span style={{fontSize:'11px',fontWeight:600,color:'var(--text-tertiary)',width:52,flexShrink:0,textAlign:'center',paddingTop:6}}>
-                        {topLevelJunction}
-                      </span>
-                }
-                <div style={{flex:1,border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',background:'var(--input-bg)',overflow:'hidden'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderBottom: f.conditions.length > 0 ? '1px solid var(--border)' : 'none',background:'var(--card-bg)'}}>
-                    <span style={{fontSize:'11.5px',color:'var(--text-secondary)',flex:1,fontStyle:'italic'}}>Condition group</span>
-                    <button style={{background:'none',border:'none',color:'var(--text-tertiary)',cursor:'pointer',padding:'2px 3px',display:'flex',alignItems:'center'}} title="Add condition" onClick={()=>addConditionToGroup(f.id)}>
-                      <Icon name="plus" size={13}/>
-                    </button>
-                    <button style={{background:'none',border:'none',color:'var(--text-tertiary)',cursor:'pointer',padding:'2px 3px',display:'flex',alignItems:'center'}} title="Remove group" onClick={()=>removeGroup(f.id)}>
-                      <Icon name="trash" size={13}/>
-                    </button>
-                    <span
-                      draggable
-                      onDragStart={e => {
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', String(f.id));
-                        setFilterDragId(f.id);
-                      }}
-                      onDragEnd={endFilterDrag}
-                      title="Drag to reorder group"
-                      style={{
-                        color: isDraggingThis ? 'var(--accent)' : 'var(--text-tertiary)',
-                        fontSize:'15px',
-                        cursor: filterDragId ? 'grabbing' : 'grab',
-                        lineHeight:1,userSelect:'none',
-                        padding:'4px 6px',
-                        borderRadius:4,
-                      }}
-                    >⠿</span>
-                  </div>
-                  {f.conditions.length === 0 && (
-                    <div style={{padding:'8px 10px',fontSize:'11.5px',color:'var(--text-tertiary)',fontStyle:'italic'}}>
-                      Click <strong>+</strong> to add conditions inside this group
-                    </div>
-                  )}
-                  {f.conditions.length > 0 && (
-                    <div style={{padding:'8px 10px'}}>
-                      {(() => {
-                        const grpJunction = (f.conditions[1]?.junction) || f.conditions[0]?.junction || 'and';
-                        return f.conditions.map((c,ci) =>
-                          renderFilterRow(
-                            c, ci===0,
-                            j => setGroupJunction(f.id, j),
-                            removeFilter,
-                            f.id,
-                            ci,
-                            grpJunction
-                          )
-                        );
-                      })()}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        }
-        return null;
-      })}
-
-      <div style={{display:'flex',gap:6,marginTop:filters.length>0?10:0}}>
-        <button className="btn btn-ghost" style={{flex:1,justifyContent:'center',fontSize:'12px'}}
-          onClick={()=>setFilters(f=>[...f,makeFilter(allCols[0].name)])}>
-          <Icon name="plus" size={12}/> Add Filter
-        </button>
-        <button className="btn btn-ghost" style={{flex:1,justifyContent:'center',fontSize:'12px',color:'var(--accent)',borderColor:'rgba(94,16,188,0.4)'}}
-          onClick={()=>setFilters(f=>[...f,makeGroup()])}>
-          <Icon name="plus" size={12}/> Add Group
-        </button>
-      </div>
-
-      <div className="divider"/>
-      <div className="builder-section-title" style={{padding:'0 var(--space-sm)',marginBottom:4}}>Fields — click to filter</div>
-      <div style={{maxHeight:160,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',background:'var(--card-bg)'}}>
-        {allCols.map(c => {
-          const count = filters.filter(f=>f.type==='filter'&&f.col===c.name).length
-            + filters.filter(f=>f.type==='group').reduce((a,g)=>a+g.conditions.filter(fc=>fc.col===c.name).length,0);
-          return (
-            <div key={c.name} className="field-item" style={{cursor:'pointer'}}
-              onClick={()=>setFilters(prev=>[...prev,makeFilter(c.name)])}>
-              <span style={{fontSize:'12.5px',color:'var(--text-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={c.name}>{c.name}</span>
-              <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
-                {count>0 && <span style={{fontSize:'10px',fontWeight:700,color:'white',background:'var(--accent)',padding:'1px 5px',borderRadius:20,minWidth:16,textAlign:'center'}}>{count}</span>}
-                <span className={`field-type ${c.type}`}>{c.type}</span>
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  return d.toLocaleDateString([], { month:'short', day:'numeric', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
 };
 
 // ── Add Lead Provider modal ───────────────────────────────────────────────────
-const AddLeadProviderModal = ({ onClose, onSave }) => {
-  const [stage, setStage] = useState('config'); // 'config' | 'rules'
-  const [dataType, setDataType] = useState('adf'); // 'adf' | 'json'
+const AddLeadProviderModal = ({ clientKey, existingProviders, onClose, onSave }) => {
   const [name, setName] = useState('');
-  const [sampleText, setSampleText] = useState('');
-  const [sampleFileName, setSampleFileName] = useState('');
-  const [parseResult, setParseResult] = useState(null); // {ok, error, fields, preview}
-  const [filters, setFilters] = useState([]);
-  const fileRef = useRef(null);
-
-  const onFile = (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    setSampleFileName(f.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = String(ev.target.result || '');
-      setSampleText(text);
-      const result = dataType === 'adf' ? parseAdfXml(text) : parseLeadJson(text);
-      setParseResult(result);
-    };
-    reader.readAsText(f);
-  };
-
-  // Re-parse if user switches data type after upload
-  const handleDataTypeChange = (next) => {
-    setDataType(next);
-    if (sampleText) {
-      const result = next === 'adf' ? parseAdfXml(sampleText) : parseLeadJson(sampleText);
-      setParseResult(result);
-    }
-  };
-
-  const canBuildRules = name.trim().length > 0 && parseResult && parseResult.ok && parseResult.fields.length > 0;
-  const canSave = canBuildRules; // Save is allowed at stage 'rules' (rules are optional but parse must be OK)
+  const slug = slugifyProviderName(name);
+  const uniqueSlug = slug ? ensureUniqueSlug(slug, existingProviders) : '';
+  const canSave = uniqueSlug.length > 0;
+  const slugWasAdjusted = slug && uniqueSlug !== slug;
 
   const handleSave = () => {
+    if (!canSave) return;
     const provider = {
       id: Date.now() + Math.random(),
       name: name.trim(),
-      dataType,
-      sampleFileName,
-      sample: sampleText,
-      fields: parseResult.fields,
-      filters,
+      slug: uniqueSlug,
+      clientKey,
       createdAt: Date.now(),
+      submissions: buildSeedSubmissions(name.trim()),
     };
     onSave(provider);
   };
@@ -4923,195 +4446,196 @@ const AddLeadProviderModal = ({ onClose, onSave }) => {
       <div
         className="modal"
         onClick={e => e.stopPropagation()}
-        style={{
-          width: stage === 'config' ? 'min(1180px, 92vw)' : 'min(1040px, 92vw)',
-          maxWidth:'92vw',
-          height:'min(820px, 88vh)',
-          display:'flex',
-          flexDirection:'column',
-        }}>
-        <div className="modal-header" style={{flexShrink:0}}>
+        style={{width:'min(560px, 92vw)', maxWidth:'92vw'}}>
+        <div className="modal-header">
           <div>
-            <div className="modal-title">
-              {stage === 'config' ? 'Add Lead Provider' : `Build Lead Assignment Rules`}
-            </div>
+            <div className="modal-title">Add Lead Provider</div>
             <div style={{fontSize:12, color:'var(--text-tertiary)', marginTop:3}}>
-              {stage === 'config'
-                ? 'Configure how leads from this source are received and parsed.'
-                : `Define rules for ${name || 'this provider'} using ${parseResult?.fields.length || 0} detected fields.`}
+              Create a dedicated inbound endpoint for a lead source.
             </div>
           </div>
           <button className="btn btn-icon" onClick={onClose}><Icon name="close" size={14}/></button>
         </div>
 
-        {stage === 'config' && (
-          <div className="modal-body" style={{flex:1, minHeight:0, display:'grid', gridTemplateColumns:'minmax(0, 5fr) minmax(0, 6fr)', gap:'var(--space-lg)', overflow:'hidden'}}>
-            {/* Left: form */}
-            <div style={{display:'flex', flexDirection:'column', minHeight:0, gap:'var(--space-md)'}}>
-              <div style={{display:'grid', gridTemplateColumns:'minmax(0, 1fr) minmax(0, 2fr)', gap:'var(--space-md)'}}>
-                <div className="form-group" style={{marginBottom:0}}>
-                  <label className="form-label">Data Type</label>
-                  <select className="form-input" value={dataType} onChange={e => handleDataTypeChange(e.target.value)}>
-                    <option value="adf">ADF XML</option>
-                    <option value="json">JSON</option>
-                  </select>
-                </div>
-                <div className="form-group" style={{marginBottom:0}}>
-                  <label className="form-label">Lead Provider Name</label>
-                  <input className="form-input" placeholder="e.g. AutoTrader, Cars.com…" value={name} onChange={e => setName(e.target.value)} autoFocus/>
-                </div>
-              </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label className="form-label">Lead Provider Name</label>
+            <input
+              className="form-input"
+              placeholder="e.g. Edmunds, CarGurus, AutoTrader…"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && canSave) handleSave(); }}
+              autoFocus
+            />
+          </div>
 
-              <div style={{display:'flex', flexDirection:'column', flex:1, minHeight:0, gap:6}}>
-                <label className="form-label" style={{marginBottom:0}}>Sample Lead File</label>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept={dataType === 'adf' ? '.xml,.txt,text/xml,text/plain' : '.json,application/json'}
-                  style={{display:'none'}}
-                  onChange={onFile}
-                />
-                <div style={{display:'flex',alignItems:'center',gap:10}}>
-                  <button className="btn btn-ghost" style={{fontSize:12.5}} onClick={() => fileRef.current && fileRef.current.click()}>
-                    <Icon name="upload" size={13}/> Choose File
-                  </button>
-                  <span style={{fontSize:12, color:'var(--text-tertiary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}} title={sampleFileName}>
-                    {sampleFileName || (dataType === 'adf' ? 'Expecting a plain-text ADF XML sample' : 'Expecting a raw JSON sample')}
-                  </span>
-                </div>
-                <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>
-                  Or paste the sample below:
-                </div>
-                <textarea
-                  className="form-input"
-                  style={{flex:1, minHeight:160, fontFamily:'monospace', fontSize:12, resize:'none', lineHeight:1.5}}
-                  placeholder={dataType === 'adf' ? '<?xml version="1.0"?>\n<adf>\n  <prospect>…</prospect>\n</adf>' : '{\n  "lead": {\n    "firstName": "Jane"\n  }\n}'}
-                  value={sampleText}
-                  onChange={e => {
-                    setSampleText(e.target.value);
-                    if (e.target.value.trim()) {
-                      const result = dataType === 'adf' ? parseAdfXml(e.target.value) : parseLeadJson(e.target.value);
-                      setParseResult(result);
-                    } else {
-                      setParseResult(null);
-                    }
-                  }}
-                />
-              </div>
+          <div className="form-group" style={{marginBottom:0}}>
+            <label className="form-label">Inbound Endpoint</label>
+            <div style={{
+              padding:'10px 12px',
+              background:'var(--input-bg)',
+              border:'1px solid var(--border)',
+              borderRadius:'var(--radius-sm)',
+              fontFamily:'monospace',
+              fontSize:13,
+              color: canSave ? 'var(--text-primary)' : 'var(--text-tertiary)',
+              display:'flex',
+              alignItems:'center',
+              minHeight:38,
+              wordBreak:'break-all',
+              lineHeight:1.4,
+            }}>
+              {canSave ? (
+                <>
+                  <span style={{color:'var(--text-secondary)'}}>leads.convergenceauto.com/{clientKey}/</span>
+                  <span style={{color:'var(--accent)', fontWeight:600}}>{uniqueSlug}</span>
+                </>
+              ) : (
+                <span style={{fontStyle:'italic'}}>Type a name to preview the endpoint…</span>
+              )}
             </div>
-
-            {/* Right: preview */}
-            <div style={{display:'flex', flexDirection:'column', minHeight:0, gap:6}}>
-              <label className="form-label" style={{marginBottom:0}}>Interpreted Sample</label>
-              {!parseResult && (
-                <div style={{flex:1, padding:'24px',border:'1px dashed var(--border)',borderRadius:'var(--radius-sm)',background:'var(--input-bg)',fontSize:13,color:'var(--text-tertiary)',display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
-                  Upload or paste a sample to see the interpreted fields here.
-                </div>
-              )}
-              {parseResult && !parseResult.ok && (
-                <div style={{flex:1, padding:'16px',border:'1px solid #ef4444',borderRadius:'var(--radius-sm)',background:'rgba(239,68,68,0.06)',fontSize:13,color:'#ef4444', overflow:'auto'}}>
-                  <div style={{fontWeight:600, marginBottom:6}}>Could not interpret sample</div>
-                  <div style={{fontSize:12, opacity:0.85, lineHeight:1.5}}>{parseResult.error}</div>
-                </div>
-              )}
-              {parseResult && parseResult.ok && (
-                <div style={{flex:1, minHeight:0, border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',overflow:'hidden',background:'var(--card-bg)', display:'flex', flexDirection:'column'}}>
-                  <div style={{padding:'10px 12px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--input-bg)',flexShrink:0}}>
-                    <Icon name="check" size={14} style={{color:'#22c55e'}}/>
-                    <span style={{fontSize:12.5, fontWeight:600}}>{parseResult.fields.length} fields detected</span>
-                  </div>
-                  {/* Fields list — half the available preview height */}
-                  <div style={{flex:1, minHeight:0, overflowY:'auto', padding:'4px 0'}}>
-                    {parseResult.fields.map(f => (
-                      <div key={f.path} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 14px',fontSize:12}}>
-                        <span style={{flex:1, overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-primary)'}} title={f.path}>{f.path}</span>
-                        <span className={`field-type ${f.type}`}>{f.type}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{borderTop:'1px solid var(--border)', padding:'8px 12px', background:'var(--input-bg)', fontSize:11, color:'var(--text-tertiary)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flexShrink:0}}>Raw Preview</div>
-                  <pre style={{margin:0, padding:'10px 12px', fontSize:11, flex:1, minHeight:0, overflow:'auto', fontFamily:'monospace', color:'var(--text-secondary)', lineHeight:1.5, background:'var(--card-bg)'}}>{parseResult.preview}</pre>
-                </div>
-              )}
+            {slugWasAdjusted && (
+              <div style={{fontSize:11.5, color:'var(--text-tertiary)', marginTop:6, lineHeight:1.45}}>
+                A provider with the slug <strong>{slug}</strong> already exists, so this one will use <strong>{uniqueSlug}</strong>.
+              </div>
+            )}
+            <div style={{fontSize:11.5, color:'var(--text-tertiary)', marginTop:6, lineHeight:1.45}}>
+              ADF XML submissions sent to this endpoint will appear under this provider.
             </div>
           </div>
-        )}
+        </div>
 
-        {stage === 'rules' && (
-          <div className="modal-body" style={{flex:1, minHeight:0, overflowY:'auto'}}>
-            <div style={{maxWidth:780, margin:'0 auto'}}>
-              <LeadFilterEditor
-                fields={parseResult?.fields || []}
-                filters={filters}
-                onChange={setFilters}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="modal-footer" style={{flexShrink:0, justifyContent:'space-between'}}>
-          {stage === 'config' && (
-            <>
-              <div style={{display:'flex', gap:'var(--space-sm)'}}>
-                <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-                <button
-                  className="btn btn-ghost"
-                  disabled={!canBuildRules}
-                  onClick={() => canBuildRules && handleSave()}
-                  style={{opacity: canBuildRules ? 1 : 0.4, cursor: canBuildRules ? 'pointer' : 'not-allowed', color:'var(--text-secondary)'}}
-                  title="Save this provider now and add assignment rules later">
-                  Save without rules
-                </button>
-              </div>
-              <button
-                className="btn btn-primary"
-                disabled={!canBuildRules}
-                onClick={() => canBuildRules && setStage('rules')}
-                style={{opacity: canBuildRules ? 1 : 0.5, cursor: canBuildRules ? 'pointer' : 'not-allowed'}}>
-                Build Lead Assignment Rules <Icon name="chevronRight" size={12}/>
-              </button>
-            </>
-          )}
-          {stage === 'rules' && (
-            <>
-              <button className="btn btn-ghost" onClick={() => setStage('config')}>
-                <Icon name="chevronRight" size={12} style={{transform:'rotate(180deg)'}}/> Back
-              </button>
-              <button className="btn btn-primary" onClick={handleSave}>Save Lead Provider</button>
-            </>
-          )}
+        <div className="modal-footer">
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button
+            className="btn btn-primary"
+            disabled={!canSave}
+            onClick={handleSave}
+            style={{opacity: canSave ? 1 : 0.5, cursor: canSave ? 'pointer' : 'not-allowed'}}>
+            Create Lead Provider
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
+// ── Submission detail (raw ADF XML viewer) ────────────────────────────────────
+const SubmissionDetailPane = ({ submission, providerEndpoint }) => {
+  if (!submission) {
+    return (
+      <div style={{padding:'40px 20px', fontSize:13, color:'var(--text-tertiary)', textAlign:'center'}}>
+        Select a submission on the left to view its contents.
+      </div>
+    );
+  }
+  return (
+    <div style={{display:'flex', flexDirection:'column', height:'100%', minHeight:0}}>
+      <div style={{padding:'16px 20px 12px', borderBottom:'1px solid var(--border)'}}>
+        <div style={{fontFamily:'var(--font-display)', fontSize:15, fontWeight:600, color:'var(--text-primary)', marginBottom:4}}>
+          {submission.subject || submission.summary || 'Lead Submission'}
+        </div>
+        <div style={{display:'flex', flexWrap:'wrap', gap:'4px 14px', fontSize:11.5, color:'var(--text-tertiary)'}}>
+          <span>From <strong style={{color:'var(--text-secondary)'}}>{submission.from || '—'}</strong></span>
+          <span>· {new Date(submission.receivedAt).toLocaleString([], { dateStyle:'medium', timeStyle:'short' })}</span>
+        </div>
+      </div>
+      <div style={{padding:'0 20px 12px', borderBottom:'1px solid var(--border)', flexShrink:0}}>
+        <div style={{fontSize:11, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', fontWeight:600, marginTop:12, marginBottom:6}}>Routed via</div>
+        <div style={{fontFamily:'monospace', fontSize:11.5, color:'var(--text-secondary)', wordBreak:'break-all'}}>{providerEndpoint}</div>
+      </div>
+      <div style={{padding:'12px 20px 6px', flexShrink:0}}>
+        <div style={{fontSize:11, color:'var(--text-tertiary)', textTransform:'uppercase', letterSpacing:'0.06em', fontWeight:600}}>Raw ADF XML</div>
+      </div>
+      <pre style={{
+        margin:0,
+        padding:'0 20px 20px',
+        fontSize:11.5,
+        flex:1,
+        minHeight:0,
+        overflow:'auto',
+        fontFamily:'monospace',
+        color:'var(--text-secondary)',
+        lineHeight:1.55,
+        whiteSpace:'pre-wrap',
+        wordBreak:'break-word',
+      }}>{submission.raw}</pre>
+    </div>
+  );
+};
+
 // ── View / manage existing Lead Providers ─────────────────────────────────────
-const ViewLeadProvidersModal = ({ providers, onClose, onUpdate, onDelete, onAddNew }) => {
-  const [selectedId, setSelectedId] = useState(providers[0]?.id || null);
-  const selected = providers.find(p => p.id === selectedId) || null;
+const ViewLeadProvidersModal = ({ providers, clientKey, onClose, onUpdate, onDelete, onAddNew }) => {
+  // Show only providers belonging to this client (dealer). Older saved
+  // providers from before clientKey existed are shown to everyone so nothing
+  // accidentally disappears on upgrade.
+  const visibleProviders = useMemo(
+    () => providers.filter(p => !p.clientKey || p.clientKey === clientKey),
+    [providers, clientKey]
+  );
+
+  const [selectedId, setSelectedId] = useState(visibleProviders[0]?.id || null);
+  const selected = visibleProviders.find(p => p.id === selectedId) || null;
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState('');
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState(null);
+  const [copiedEndpoint, setCopiedEndpoint] = useState(false);
 
-  // Keep selection valid when providers change
+  // Keep selection valid as providers change
   useEffect(() => {
-    if (selectedId == null && providers.length > 0) setSelectedId(providers[0].id);
-    if (selectedId != null && !providers.find(p => p.id === selectedId)) {
-      setSelectedId(providers[0]?.id || null);
+    if (selectedId == null && visibleProviders.length > 0) {
+      setSelectedId(visibleProviders[0].id);
     }
-  }, [providers, selectedId]);
+    if (selectedId != null && !visibleProviders.find(p => p.id === selectedId)) {
+      setSelectedId(visibleProviders[0]?.id || null);
+    }
+  }, [visibleProviders, selectedId]);
+
+  // Reset submission selection when provider changes
+  useEffect(() => {
+    setSelectedSubmissionId(selected?.submissions?.[0]?.id || null);
+    setEditingName(false);
+    setCopiedEndpoint(false);
+  }, [selectedId]); // eslint-disable-line
 
   const startEditName = () => { setDraftName(selected?.name || ''); setEditingName(true); };
   const commitName = () => {
-    if (selected && draftName.trim()) onUpdate(selected.id, { name: draftName.trim() });
+    if (!selected) return;
+    const trimmed = draftName.trim();
+    if (!trimmed) { setEditingName(false); return; }
+    const newSlug = ensureUniqueSlug(
+      slugifyProviderName(trimmed),
+      visibleProviders.filter(p => p.id !== selected.id)
+    );
+    onUpdate(selected.id, { name: trimmed, slug: newSlug });
     setEditingName(false);
   };
   const handleDelete = () => {
     if (!selected) return;
-    if (window.confirm(`Delete lead provider "${selected.name}"?`)) {
+    if (window.confirm(`Delete lead provider "${selected.name}"? Existing submissions will be removed.`)) {
       onDelete(selected.id);
     }
   };
+
+  const endpoint = selected
+    ? leadProviderEndpoint(selected.clientKey || clientKey, selected.slug || slugifyProviderName(selected.name))
+    : '';
+
+  const copyEndpoint = async () => {
+    if (!endpoint) return;
+    try {
+      await navigator.clipboard.writeText(endpoint);
+      setCopiedEndpoint(true);
+      setTimeout(() => setCopiedEndpoint(false), 1500);
+    } catch (_) {
+      // Fallback: select the text node so user can copy manually
+      setCopiedEndpoint(false);
+    }
+  };
+
+  const submissions = selected?.submissions || [];
+  const selectedSubmission = submissions.find(s => s.id === selectedSubmissionId) || submissions[0] || null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -5129,97 +4653,170 @@ const ViewLeadProvidersModal = ({ providers, onClose, onUpdate, onDelete, onAddN
           <div>
             <div className="modal-title">Lead Providers</div>
             <div style={{fontSize:12, color:'var(--text-tertiary)', marginTop:3}}>
-              {providers.length === 0 ? 'No providers yet' : `${providers.length} provider${providers.length === 1 ? '' : 's'} configured`}
+              {visibleProviders.length === 0
+                ? 'No providers yet'
+                : `${visibleProviders.length} provider${visibleProviders.length === 1 ? '' : 's'} routing to ${clientKey}`}
             </div>
           </div>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <button className="btn btn-primary" style={{padding:'6px 12px',fontSize:12.5}} onClick={onAddNew}>
+          <div style={{display:'flex', gap:8, alignItems:'center'}}>
+            <button className="btn btn-primary" style={{padding:'6px 12px', fontSize:12.5}} onClick={onAddNew}>
               <Icon name="plus" size={12}/> Add New
             </button>
             <button className="btn btn-icon" onClick={onClose}><Icon name="close" size={14}/></button>
           </div>
         </div>
+
         <div className="modal-body" style={{padding:0, display:'grid', gridTemplateColumns:'280px 1fr', flex:1, minHeight:0}}>
-          {/* Sidebar — provider list */}
-          <div style={{borderRight:'1px solid var(--border)', overflowY:'auto', background:'var(--input-bg)'}}>
-            {providers.length === 0 && (
+          {/* ── Sidebar: providers list ── */}
+          <div style={{borderRight:'1px solid var(--border)', overflowY:'auto', background:'var(--input-bg)', display:'flex', flexDirection:'column'}}>
+            {visibleProviders.length === 0 && (
               <div style={{padding:24, fontSize:13, color:'var(--text-tertiary)', textAlign:'center'}}>
-                No lead providers yet. Click <strong>Add New</strong> to get started.
+                No lead providers yet. Click <strong>Add New</strong> to spin one up.
               </div>
             )}
-            {providers.map(p => (
-              <div key={p.id}
-                onClick={() => { setSelectedId(p.id); setEditingName(false); }}
-                style={{
-                  padding:'12px 14px',
-                  borderBottom:'1px solid var(--border)',
-                  cursor:'pointer',
-                  background: selectedId === p.id ? 'var(--accent-light)' : 'transparent',
-                  borderLeft: selectedId === p.id ? '3px solid var(--accent)' : '3px solid transparent',
-                }}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:14}}>📥</span>
-                  <div style={{flex:1, overflow:'hidden'}}>
-                    <div style={{fontSize:13, fontWeight:600, color: selectedId === p.id ? 'var(--accent)' : 'var(--text-primary)', overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
-                    <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2, textTransform:'uppercase', letterSpacing:'0.04em'}}>
-                      {p.dataType === 'adf' ? 'ADF XML' : 'JSON'} · {(p.filters || []).length} rule{(p.filters || []).length === 1 ? '' : 's'}
+            {visibleProviders.map(p => {
+              const active = selectedId === p.id;
+              const subCount = (p.submissions || []).length;
+              return (
+                <div key={p.id}
+                  onClick={() => setSelectedId(p.id)}
+                  style={{
+                    padding:'12px 14px',
+                    borderBottom:'1px solid var(--border)',
+                    cursor:'pointer',
+                    background: active ? 'var(--accent-light)' : 'transparent',
+                    borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent',
+                  }}>
+                  <div style={{display:'flex', alignItems:'center', gap:8}}>
+                    <span style={{fontSize:14}}>📥</span>
+                    <div style={{flex:1, overflow:'hidden'}}>
+                      <div style={{fontSize:13, fontWeight:600, color: active ? 'var(--accent)' : 'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.name}</div>
+                      <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2, fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={p.slug}>
+                        /{p.slug || slugifyProviderName(p.name)}
+                      </div>
+                      <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>
+                        {subCount} submission{subCount === 1 ? '' : 's'}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Main pane */}
-          <div style={{overflowY:'auto', padding:'var(--space-lg)'}}>
+          {/* ── Main pane: endpoint header + submissions ── */}
+          <div style={{display:'flex', flexDirection:'column', minHeight:0}}>
             {!selected && (
               <div style={{padding:'40px 20px', fontSize:13, color:'var(--text-tertiary)', textAlign:'center'}}>
-                {providers.length === 0
+                {visibleProviders.length === 0
                   ? 'Add a lead provider to get started.'
-                  : 'Select a provider from the list to view or edit.'}
+                  : 'Select a provider from the list to view its submissions.'}
               </div>
             )}
             {selected && (
               <>
-                {/* Name + meta */}
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
-                  {editingName ? (
-                    <>
-                      <input
-                        className="form-input"
-                        autoFocus
-                        value={draftName}
-                        onChange={e => setDraftName(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') setEditingName(false); }}
-                        style={{fontSize:15, fontWeight:600, padding:'4px 8px', maxWidth:340}}
-                      />
-                      <button className="btn btn-primary" style={{padding:'4px 10px',fontSize:12}} onClick={commitName}>Save</button>
-                      <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:12}} onClick={() => setEditingName(false)}>Cancel</button>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{fontFamily:'var(--font-display)', fontSize:18, fontWeight:600}}>{selected.name}</div>
-                      <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:11.5}} onClick={startEditName}>
-                        <Icon name="edit" size={11}/> Rename
-                      </button>
-                      <div style={{flex:1}}/>
-                      <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:11.5,color:'#ef4444',borderColor:'rgba(239,68,68,0.35)'}} onClick={handleDelete}>
-                        <Icon name="trash" size={11}/> Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-                <div style={{fontSize:12, color:'var(--text-tertiary)', marginBottom:'var(--space-lg)'}}>
-                  {selected.dataType === 'adf' ? 'ADF XML' : 'JSON'} · {selected.fields.length} fields · {selected.sampleFileName || 'pasted sample'}
+                {/* Provider header */}
+                <div style={{padding:'var(--space-lg)', borderBottom:'1px solid var(--border)', flexShrink:0}}>
+                  <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:8, flexWrap:'wrap'}}>
+                    {editingName ? (
+                      <>
+                        <input
+                          className="form-input"
+                          autoFocus
+                          value={draftName}
+                          onChange={e => setDraftName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') setEditingName(false); }}
+                          style={{fontSize:16, fontWeight:600, padding:'5px 10px', maxWidth:380}}
+                        />
+                        <button className="btn btn-primary" style={{padding:'5px 12px', fontSize:12}} onClick={commitName}>Save</button>
+                        <button className="btn btn-ghost" style={{padding:'5px 12px', fontSize:12}} onClick={() => setEditingName(false)}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{fontFamily:'var(--font-display)', fontSize:19, fontWeight:600}}>{selected.name}</div>
+                        <button className="btn btn-ghost" style={{padding:'4px 8px', fontSize:11.5}} onClick={startEditName}>
+                          <Icon name="edit" size={11}/> Rename
+                        </button>
+                        <div style={{flex:1}}/>
+                        <button className="btn btn-ghost" style={{padding:'4px 8px', fontSize:11.5, color:'#ef4444', borderColor:'rgba(239,68,68,0.35)'}} onClick={handleDelete}>
+                          <Icon name="trash" size={11}/> Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Endpoint chip with copy */}
+                  <div style={{
+                    display:'flex',
+                    alignItems:'center',
+                    gap:10,
+                    padding:'8px 12px',
+                    background:'var(--input-bg)',
+                    border:'1px solid var(--border)',
+                    borderRadius:'var(--radius-sm)',
+                  }}>
+                    <span style={{fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-tertiary)', flexShrink:0}}>
+                      Endpoint
+                    </span>
+                    <span style={{fontFamily:'monospace', fontSize:12.5, color:'var(--text-primary)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={endpoint}>
+                      {endpoint}
+                    </span>
+                    <button
+                      className="btn btn-ghost"
+                      style={{padding:'4px 10px', fontSize:11.5, flexShrink:0}}
+                      onClick={copyEndpoint}>
+                      {copiedEndpoint ? <><Icon name="check" size={11}/> Copied</> : <><Icon name="copy" size={11}/> Copy</>}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="builder-panel-title" style={{padding:0,marginBottom:8}}>Assignment Rules</div>
-                <div style={{maxWidth:780}}>
-                  <LeadFilterEditor
-                    fields={selected.fields}
-                    filters={selected.filters || []}
-                    onChange={(next) => onUpdate(selected.id, { filters: next })}
-                  />
+                {/* Submissions area: list on left, detail on right */}
+                <div style={{flex:1, minHeight:0, display:'grid', gridTemplateColumns:'minmax(0, 280px) minmax(0, 1fr)'}}>
+                  {/* Submissions list */}
+                  <div style={{borderRight:'1px solid var(--border)', overflowY:'auto', background:'var(--card-bg)'}}>
+                    <div style={{padding:'10px 14px', borderBottom:'1px solid var(--border)', background:'var(--input-bg)', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-tertiary)', position:'sticky', top:0}}>
+                      Submissions ({submissions.length})
+                    </div>
+                    {submissions.length === 0 && (
+                      <div style={{padding:'24px 16px', fontSize:12.5, color:'var(--text-tertiary)', textAlign:'center', lineHeight:1.5}}>
+                        Waiting for the first submission to this endpoint…
+                      </div>
+                    )}
+                    {submissions
+                      .slice()
+                      .sort((a, b) => b.receivedAt - a.receivedAt)
+                      .map(sub => {
+                        const active = (selectedSubmission?.id === sub.id);
+                        return (
+                          <div key={sub.id}
+                            onClick={() => setSelectedSubmissionId(sub.id)}
+                            style={{
+                              padding:'10px 14px',
+                              borderBottom:'1px solid var(--border)',
+                              cursor:'pointer',
+                              background: active ? 'var(--accent-light)' : 'transparent',
+                              borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent',
+                            }}>
+                            <div style={{fontSize:12.5, fontWeight:600, color: active ? 'var(--accent)' : 'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                              {sub.summary || sub.subject || 'Lead submission'}
+                            </div>
+                            <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:3, display:'flex', justifyContent:'space-between', gap:8}}>
+                              <span style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{sub.from}</span>
+                              <span style={{flexShrink:0}}>{formatSubmissionTime(sub.receivedAt)}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+
+                  {/* Submission detail */}
+                  <div style={{overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0}}>
+                    <SubmissionDetailPane
+                      submission={selectedSubmission}
+                      providerEndpoint={endpoint}
+                    />
+                  </div>
                 </div>
               </>
             )}
@@ -5231,13 +4828,24 @@ const ViewLeadProvidersModal = ({ providers, onClose, onUpdate, onDelete, onAddN
 };
 
 // ─── PIPELINES SCREEN ────────────────────────────────────────────────────────
-const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegration, leadProviders = [], onAddLeadProvider, onUpdateLeadProvider, onDeleteLeadProvider }) => {
+const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegration, leadProviders = [], onAddLeadProvider, onUpdateLeadProvider, onDeleteLeadProvider, dealer }) => {
   const [appointments, setAppointments] = useState(CX_APPOINTMENTS_INIT);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [tab, setTab] = useState('files'); // 'files' | 'integrations'
   const [showAddLeadProvider, setShowAddLeadProvider] = useState(false);
   const [showViewLeadProviders, setShowViewLeadProviders] = useState(false);
   const fileRef = useRef(null);
+
+  // Client key derived from the active dealer. Used to build the inbound
+  // endpoint for each lead provider (leads.convergenceauto.com/{ck}/{slug}).
+  const clientKey = useMemo(() => deriveClientKey(dealer), [dealer]);
+
+  // Providers belonging to this dealer (filter by clientKey, but allow legacy
+  // providers without a clientKey field to still appear).
+  const dealerProviders = useMemo(
+    () => leadProviders.filter(p => !p.clientKey || p.clientKey === clientKey),
+    [leadProviders, clientKey]
+  );
 
   const onFileChange = (e) => {
     const f = e.target.files && e.target.files[0];
@@ -5399,7 +5007,7 @@ const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegrati
                     {intg.isLeadProviders ? (
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,gap:6}}>
                         <span style={{fontSize:'11px',color:'var(--text-tertiary)',fontFamily:'monospace'}}>
-                          {leadProviders.length} configured
+                          {dealerProviders.length} configured
                         </span>
                         <div style={{display:'flex',gap:6}}>
                           <button
@@ -5450,6 +5058,8 @@ const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegrati
       {/* ── Lead Providers modals ── */}
       {showAddLeadProvider && (
         <AddLeadProviderModal
+          clientKey={clientKey}
+          existingProviders={dealerProviders}
           onClose={() => setShowAddLeadProvider(false)}
           onSave={(provider) => { onAddLeadProvider && onAddLeadProvider(provider); setShowAddLeadProvider(false); }}
         />
@@ -5457,6 +5067,7 @@ const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegrati
       {showViewLeadProviders && (
         <ViewLeadProvidersModal
           providers={leadProviders}
+          clientKey={clientKey}
           onClose={() => setShowViewLeadProviders(false)}
           onUpdate={onUpdateLeadProvider}
           onDelete={onDeleteLeadProvider}
@@ -14598,7 +14209,7 @@ const App = () => {
     switch (screen) {
       // ── Convergence top-level sections ──
       case 'home':        return <HomeScreen tweaks={tweaks}/>;
-      case 'pipelines':   return <PipelinesScreen navigate={navigate} enabledIntegrations={enabledIntegrations} onEnableIntegration={handleEnableIntegration} leadProviders={leadProviders} onAddLeadProvider={handleAddLeadProvider} onUpdateLeadProvider={handleUpdateLeadProvider} onDeleteLeadProvider={handleDeleteLeadProvider}/>;
+      case 'pipelines':   return <PipelinesScreen navigate={navigate} enabledIntegrations={enabledIntegrations} onEnableIntegration={handleEnableIntegration} leadProviders={leadProviders} onAddLeadProvider={handleAddLeadProvider} onUpdateLeadProvider={handleUpdateLeadProvider} onDeleteLeadProvider={handleDeleteLeadProvider} dealer={dealer}/>;
       case 'portfolio':   return <PortfolioScreen/>;
       case 'touchpoints': return <TouchPointsScreen/>;
       case 'weave':       return <WeaveScreen/>;
