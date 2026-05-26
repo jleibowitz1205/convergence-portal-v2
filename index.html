@@ -4920,31 +4920,50 @@ const AddLeadProviderModal = ({ onClose, onSave }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{width: stage === 'config' ? 760 : 720, maxWidth:'94vw'}}>
-        <div className="modal-header">
-          <div className="modal-title">
-            {stage === 'config' ? 'Add Lead Provider' : `Build Lead Assignment Rules — ${name || 'Provider'}`}
+      <div
+        className="modal"
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: stage === 'config' ? 'min(1180px, 92vw)' : 'min(1040px, 92vw)',
+          maxWidth:'92vw',
+          height:'min(820px, 88vh)',
+          display:'flex',
+          flexDirection:'column',
+        }}>
+        <div className="modal-header" style={{flexShrink:0}}>
+          <div>
+            <div className="modal-title">
+              {stage === 'config' ? 'Add Lead Provider' : `Build Lead Assignment Rules`}
+            </div>
+            <div style={{fontSize:12, color:'var(--text-tertiary)', marginTop:3}}>
+              {stage === 'config'
+                ? 'Configure how leads from this source are received and parsed.'
+                : `Define rules for ${name || 'this provider'} using ${parseResult?.fields.length || 0} detected fields.`}
+            </div>
           </div>
           <button className="btn btn-icon" onClick={onClose}><Icon name="close" size={14}/></button>
         </div>
 
         {stage === 'config' && (
-          <div className="modal-body" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'var(--space-lg)'}}>
+          <div className="modal-body" style={{flex:1, minHeight:0, display:'grid', gridTemplateColumns:'minmax(0, 5fr) minmax(0, 6fr)', gap:'var(--space-lg)', overflow:'hidden'}}>
             {/* Left: form */}
-            <div>
-              <div className="form-group">
-                <label className="form-label">Data Type</label>
-                <select className="form-input" value={dataType} onChange={e => handleDataTypeChange(e.target.value)}>
-                  <option value="adf">ADF XML</option>
-                  <option value="json">JSON</option>
-                </select>
+            <div style={{display:'flex', flexDirection:'column', minHeight:0, gap:'var(--space-md)'}}>
+              <div style={{display:'grid', gridTemplateColumns:'minmax(0, 1fr) minmax(0, 2fr)', gap:'var(--space-md)'}}>
+                <div className="form-group" style={{marginBottom:0}}>
+                  <label className="form-label">Data Type</label>
+                  <select className="form-input" value={dataType} onChange={e => handleDataTypeChange(e.target.value)}>
+                    <option value="adf">ADF XML</option>
+                    <option value="json">JSON</option>
+                  </select>
+                </div>
+                <div className="form-group" style={{marginBottom:0}}>
+                  <label className="form-label">Lead Provider Name</label>
+                  <input className="form-input" placeholder="e.g. AutoTrader, Cars.com…" value={name} onChange={e => setName(e.target.value)} autoFocus/>
+                </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">Lead Provider Name</label>
-                <input className="form-input" placeholder="e.g. AutoTrader, Cars.com…" value={name} onChange={e => setName(e.target.value)} autoFocus/>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Sample Lead File</label>
+
+              <div style={{display:'flex', flexDirection:'column', flex:1, minHeight:0, gap:6}}>
+                <label className="form-label" style={{marginBottom:0}}>Sample Lead File</label>
                 <input
                   ref={fileRef}
                   type="file"
@@ -4952,20 +4971,20 @@ const AddLeadProviderModal = ({ onClose, onSave }) => {
                   style={{display:'none'}}
                   onChange={onFile}
                 />
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <button className="btn btn-ghost" style={{fontSize:12}} onClick={() => fileRef.current && fileRef.current.click()}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <button className="btn btn-ghost" style={{fontSize:12.5}} onClick={() => fileRef.current && fileRef.current.click()}>
                     <Icon name="upload" size={13}/> Choose File
                   </button>
-                  <span style={{fontSize:12, color:'var(--text-tertiary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={sampleFileName}>
+                  <span style={{fontSize:12, color:'var(--text-tertiary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}} title={sampleFileName}>
                     {sampleFileName || (dataType === 'adf' ? 'Expecting a plain-text ADF XML sample' : 'Expecting a raw JSON sample')}
                   </span>
                 </div>
-                <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:6, lineHeight:1.45}}>
+                <div style={{fontSize:11, color:'var(--text-tertiary)', marginTop:2}}>
                   Or paste the sample below:
                 </div>
                 <textarea
                   className="form-input"
-                  style={{marginTop:6, height:140, fontFamily:'monospace', fontSize:11.5, resize:'vertical'}}
+                  style={{flex:1, minHeight:160, fontFamily:'monospace', fontSize:12, resize:'none', lineHeight:1.5}}
                   placeholder={dataType === 'adf' ? '<?xml version="1.0"?>\n<adf>\n  <prospect>…</prospect>\n</adf>' : '{\n  "lead": {\n    "firstName": "Jane"\n  }\n}'}
                   value={sampleText}
                   onChange={e => {
@@ -4982,35 +5001,36 @@ const AddLeadProviderModal = ({ onClose, onSave }) => {
             </div>
 
             {/* Right: preview */}
-            <div>
-              <label className="form-label">Interpreted Sample</label>
+            <div style={{display:'flex', flexDirection:'column', minHeight:0, gap:6}}>
+              <label className="form-label" style={{marginBottom:0}}>Interpreted Sample</label>
               {!parseResult && (
-                <div style={{padding:'14px',border:'1px dashed var(--border)',borderRadius:'var(--radius-sm)',background:'var(--input-bg)',fontSize:12,color:'var(--text-tertiary)',height:'calc(100% - 24px)',display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
+                <div style={{flex:1, padding:'24px',border:'1px dashed var(--border)',borderRadius:'var(--radius-sm)',background:'var(--input-bg)',fontSize:13,color:'var(--text-tertiary)',display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
                   Upload or paste a sample to see the interpreted fields here.
                 </div>
               )}
               {parseResult && !parseResult.ok && (
-                <div style={{padding:'12px',border:'1px solid #ef4444',borderRadius:'var(--radius-sm)',background:'rgba(239,68,68,0.06)',fontSize:12,color:'#ef4444'}}>
-                  <div style={{fontWeight:600, marginBottom:4}}>Could not interpret sample</div>
-                  <div style={{fontSize:11,opacity:0.85}}>{parseResult.error}</div>
+                <div style={{flex:1, padding:'16px',border:'1px solid #ef4444',borderRadius:'var(--radius-sm)',background:'rgba(239,68,68,0.06)',fontSize:13,color:'#ef4444', overflow:'auto'}}>
+                  <div style={{fontWeight:600, marginBottom:6}}>Could not interpret sample</div>
+                  <div style={{fontSize:12, opacity:0.85, lineHeight:1.5}}>{parseResult.error}</div>
                 </div>
               )}
               {parseResult && parseResult.ok && (
-                <div style={{border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',overflow:'hidden',background:'var(--card-bg)'}}>
-                  <div style={{padding:'8px 10px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--input-bg)'}}>
-                    <Icon name="check" size={13} style={{color:'#22c55e'}}/>
-                    <span style={{fontSize:12,fontWeight:600}}>{parseResult.fields.length} fields detected</span>
+                <div style={{flex:1, minHeight:0, border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',overflow:'hidden',background:'var(--card-bg)', display:'flex', flexDirection:'column'}}>
+                  <div style={{padding:'10px 12px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'var(--input-bg)',flexShrink:0}}>
+                    <Icon name="check" size={14} style={{color:'#22c55e'}}/>
+                    <span style={{fontSize:12.5, fontWeight:600}}>{parseResult.fields.length} fields detected</span>
                   </div>
-                  <div style={{maxHeight:140,overflowY:'auto',padding:'4px 0'}}>
+                  {/* Fields list — half the available preview height */}
+                  <div style={{flex:1, minHeight:0, overflowY:'auto', padding:'4px 0'}}>
                     {parseResult.fields.map(f => (
-                      <div key={f.path} style={{display:'flex',alignItems:'center',gap:8,padding:'3px 12px',fontSize:11.5}}>
+                      <div key={f.path} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 14px',fontSize:12}}>
                         <span style={{flex:1, overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text-primary)'}} title={f.path}>{f.path}</span>
                         <span className={`field-type ${f.type}`}>{f.type}</span>
                       </div>
                     ))}
                   </div>
-                  <div style={{borderTop:'1px solid var(--border)',padding:'8px 10px',background:'var(--input-bg)',fontSize:11,color:'var(--text-tertiary)',fontWeight:600}}>Raw Preview</div>
-                  <pre style={{margin:0,padding:'8px 10px',fontSize:10.5,maxHeight:140,overflow:'auto',fontFamily:'monospace',color:'var(--text-secondary)',lineHeight:1.4}}>{parseResult.preview}</pre>
+                  <div style={{borderTop:'1px solid var(--border)', padding:'8px 12px', background:'var(--input-bg)', fontSize:11, color:'var(--text-tertiary)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flexShrink:0}}>Raw Preview</div>
+                  <pre style={{margin:0, padding:'10px 12px', fontSize:11, flex:1, minHeight:0, overflow:'auto', fontFamily:'monospace', color:'var(--text-secondary)', lineHeight:1.5, background:'var(--card-bg)'}}>{parseResult.preview}</pre>
                 </div>
               )}
             </div>
@@ -5018,35 +5038,37 @@ const AddLeadProviderModal = ({ onClose, onSave }) => {
         )}
 
         {stage === 'rules' && (
-          <div className="modal-body">
-            <div style={{fontSize:12.5, color:'var(--text-secondary)', marginBottom:12, lineHeight:1.5}}>
-              Build conditions to assign incoming <strong>{name || 'leads'}</strong> using the {parseResult?.fields.length || 0} fields detected from your sample.
+          <div className="modal-body" style={{flex:1, minHeight:0, overflowY:'auto'}}>
+            <div style={{maxWidth:780, margin:'0 auto'}}>
+              <LeadFilterEditor
+                fields={parseResult?.fields || []}
+                filters={filters}
+                onChange={setFilters}
+              />
             </div>
-            <LeadFilterEditor
-              fields={parseResult?.fields || []}
-              filters={filters}
-              onChange={setFilters}
-            />
           </div>
         )}
 
-        <div className="modal-footer">
+        <div className="modal-footer" style={{flexShrink:0, justifyContent:'space-between'}}>
           {stage === 'config' && (
             <>
-              <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+              <div style={{display:'flex', gap:'var(--space-sm)'}}>
+                <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                <button
+                  className="btn btn-ghost"
+                  disabled={!canBuildRules}
+                  onClick={() => canBuildRules && handleSave()}
+                  style={{opacity: canBuildRules ? 1 : 0.4, cursor: canBuildRules ? 'pointer' : 'not-allowed', color:'var(--text-secondary)'}}
+                  title="Save this provider now and add assignment rules later">
+                  Save without rules
+                </button>
+              </div>
               <button
                 className="btn btn-primary"
                 disabled={!canBuildRules}
                 onClick={() => canBuildRules && setStage('rules')}
                 style={{opacity: canBuildRules ? 1 : 0.5, cursor: canBuildRules ? 'pointer' : 'not-allowed'}}>
                 Build Lead Assignment Rules <Icon name="chevronRight" size={12}/>
-              </button>
-              <button
-                className="btn"
-                disabled={!canBuildRules}
-                onClick={() => canBuildRules && handleSave()}
-                style={{opacity: canBuildRules ? 1 : 0.5, cursor: canBuildRules ? 'pointer' : 'not-allowed', background:'transparent', border:'1px solid var(--border)', color:'var(--text-secondary)'}}>
-                Save (no rules)
               </button>
             </>
           )}
@@ -5093,21 +5115,35 @@ const ViewLeadProvidersModal = ({ providers, onClose, onUpdate, onDelete, onAddN
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{width:860, maxWidth:'94vw'}}>
-        <div className="modal-header">
-          <div className="modal-title">Lead Providers</div>
+      <div
+        className="modal"
+        onClick={e => e.stopPropagation()}
+        style={{
+          width:'min(1180px, 92vw)',
+          maxWidth:'92vw',
+          height:'min(820px, 88vh)',
+          display:'flex',
+          flexDirection:'column',
+        }}>
+        <div className="modal-header" style={{flexShrink:0}}>
+          <div>
+            <div className="modal-title">Lead Providers</div>
+            <div style={{fontSize:12, color:'var(--text-tertiary)', marginTop:3}}>
+              {providers.length === 0 ? 'No providers yet' : `${providers.length} provider${providers.length === 1 ? '' : 's'} configured`}
+            </div>
+          </div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <button className="btn btn-primary" style={{padding:'6px 10px',fontSize:12}} onClick={onAddNew}>
+            <button className="btn btn-primary" style={{padding:'6px 12px',fontSize:12.5}} onClick={onAddNew}>
               <Icon name="plus" size={12}/> Add New
             </button>
             <button className="btn btn-icon" onClick={onClose}><Icon name="close" size={14}/></button>
           </div>
         </div>
-        <div className="modal-body" style={{padding:0, display:'grid', gridTemplateColumns:'240px 1fr', minHeight:440, maxHeight:'70vh'}}>
+        <div className="modal-body" style={{padding:0, display:'grid', gridTemplateColumns:'280px 1fr', flex:1, minHeight:0}}>
           {/* Sidebar — provider list */}
           <div style={{borderRight:'1px solid var(--border)', overflowY:'auto', background:'var(--input-bg)'}}>
             {providers.length === 0 && (
-              <div style={{padding:20, fontSize:12.5, color:'var(--text-tertiary)', textAlign:'center'}}>
+              <div style={{padding:24, fontSize:13, color:'var(--text-tertiary)', textAlign:'center'}}>
                 No lead providers yet. Click <strong>Add New</strong> to get started.
               </div>
             )}
@@ -5178,11 +5214,13 @@ const ViewLeadProvidersModal = ({ providers, onClose, onUpdate, onDelete, onAddN
                 </div>
 
                 <div className="builder-panel-title" style={{padding:0,marginBottom:8}}>Assignment Rules</div>
-                <LeadFilterEditor
-                  fields={selected.fields}
-                  filters={selected.filters || []}
-                  onChange={(next) => onUpdate(selected.id, { filters: next })}
-                />
+                <div style={{maxWidth:780}}>
+                  <LeadFilterEditor
+                    fields={selected.fields}
+                    filters={selected.filters || []}
+                    onChange={(next) => onUpdate(selected.id, { filters: next })}
+                  />
+                </div>
               </>
             )}
           </div>
