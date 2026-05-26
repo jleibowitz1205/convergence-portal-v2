@@ -4567,13 +4567,23 @@ const SubmissionDetailPane = ({ submission, providerEndpoint }) => {
 
 // ── View / manage existing Lead Providers ─────────────────────────────────────
 const ViewLeadProvidersModal = ({ providers, clientKey, onClose, onUpdate, onDelete, onAddNew }) => {
-  // Show only providers belonging to this client (dealer). Older saved
-  // providers from before clientKey existed are shown to everyone so nothing
-  // accidentally disappears on upgrade.
   const visibleProviders = useMemo(
-    () => providers.filter(p => !p.clientKey || p.clientKey === clientKey),
+    () => providers
+      .filter(p => !p.clientKey || p.clientKey === clientKey)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name)),
     [providers, clientKey]
   );
+
+  const [search, setSearch] = useState('');
+  const filteredProviders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return visibleProviders;
+    return visibleProviders.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.slug || '').toLowerCase().includes(q)
+    );
+  }, [visibleProviders, search]);
 
   const [selectedId, setSelectedId] = useState(visibleProviders[0]?.id || null);
   const selected = visibleProviders.find(p => p.id === selectedId) || null;
@@ -4669,12 +4679,31 @@ const ViewLeadProvidersModal = ({ providers, clientKey, onClose, onUpdate, onDel
         <div className="modal-body" style={{padding:0, display:'grid', gridTemplateColumns:'280px 1fr', flex:1, minHeight:0}}>
           {/* ── Sidebar: providers list ── */}
           <div style={{borderRight:'1px solid var(--border)', overflowY:'auto', background:'var(--input-bg)', display:'flex', flexDirection:'column'}}>
+            {/* Search input */}
+            <div style={{padding:'10px 12px', borderBottom:'1px solid var(--border)', flexShrink:0, position:'sticky', top:0, background:'var(--input-bg)', zIndex:1}}>
+              <div style={{position:'relative'}}>
+                <Icon name="search" size={13} style={{position:'absolute', left:9, top:'50%', transform:'translateY(-50%)', color:'var(--text-tertiary)', pointerEvents:'none'}}/>
+                <input
+                  className="form-input"
+                  placeholder="Search providers…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{paddingLeft:28, fontSize:12.5, padding:'6px 10px 6px 28px'}}
+                />
+              </div>
+            </div>
+
             {visibleProviders.length === 0 && (
               <div style={{padding:24, fontSize:13, color:'var(--text-tertiary)', textAlign:'center'}}>
                 No lead providers yet. Click <strong>Add New</strong> to spin one up.
               </div>
             )}
-            {visibleProviders.map(p => {
+            {visibleProviders.length > 0 && filteredProviders.length === 0 && (
+              <div style={{padding:20, fontSize:12.5, color:'var(--text-tertiary)', textAlign:'center'}}>
+                No providers match <strong>"{search}"</strong>.
+              </div>
+            )}
+            {filteredProviders.map(p => {
               const active = selectedId === p.id;
               const subCount = (p.submissions || []).length;
               return (
@@ -5005,27 +5034,22 @@ const PipelinesScreen = ({ navigate, enabledIntegrations = [], onEnableIntegrati
                     <div style={{fontSize:'12.5px', color:'var(--text-secondary)', lineHeight:1.45, flex:1}}>{intg.desc}</div>
 
                     {intg.isLeadProviders ? (
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10,gap:6}}>
-                        <span style={{fontSize:'11px',color:'var(--text-tertiary)',fontFamily:'monospace'}}>
-                          {dealerProviders.length} configured
-                        </span>
-                        <div style={{display:'flex',gap:6}}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id); setShowViewLeadProviders(true); }}
-                            style={{
-                              background:'transparent', color:intg.color, border:`1px solid ${intg.color}55`,
-                              borderRadius:8, padding:'6px 10px', fontSize:11.5, fontWeight:600, cursor:'pointer',
-                              display:'inline-flex', alignItems:'center', gap:4,
-                            }}>
-                            View Lead Providers
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id); setShowAddLeadProvider(true); }}
-                            className="cx-btn-primary"
-                            style={{padding:'6px 10px', fontSize:11.5}}>
-                            <Icon name="plus" size={11}/> Add New
-                          </button>
-                        </div>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',marginTop:10,gap:6}}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id); setShowViewLeadProviders(true); }}
+                          style={{
+                            background:'transparent', color:intg.color, border:`1px solid ${intg.color}55`,
+                            borderRadius:8, padding:'6px 10px', fontSize:11.5, fontWeight:600, cursor:'pointer',
+                            display:'inline-flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
+                          }}>
+                          View Lead Providers
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (!isEnabled(intg.id)) onEnableIntegration && onEnableIntegration(intg.id); setShowAddLeadProvider(true); }}
+                          className="cx-btn-primary"
+                          style={{padding:'6px 10px', fontSize:11.5, whiteSpace:'nowrap'}}>
+                          <Icon name="plus" size={11}/> Add New
+                        </button>
                       </div>
                     ) : (
                       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:10}}>
