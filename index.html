@@ -3021,6 +3021,7 @@
     border-radius: 6px;
     background: var(--input-bg);
     border: 1px solid transparent;
+    color: var(--text-primary);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -3044,6 +3045,7 @@
     font-size: 11px;
     font-weight: 600;
     line-height: 1;
+    color: inherit;
   }
   .cc-day.is-today .cc-day-num { color: #fff; }
   .cc-day-dots {
@@ -3870,6 +3872,82 @@
     border: 1px solid var(--border) !important;
     box-shadow: var(--card-shadow) !important;
   }
+
+  /* ════════════════════════════════════════════════════════════════════
+   * DARK MODE COMPONENT OVERRIDES
+   * Components with hardcoded light backgrounds/borders that don't adapt
+   * via CSS variables. We re-style them only inside [data-theme="dark"].
+   * ════════════════════════════════════════════════════════════════════ */
+
+  /* KPI delta pills (up/down) — light pastel bg becomes translucent tint */
+  [data-theme="dark"] .kpi-delta.up   { color: #86efac; background: rgba(34,197,94,0.15); }
+  [data-theme="dark"] .kpi-delta.down { color: #fca5a5; background: rgba(239,68,68,0.15); }
+
+  /* Field-type badges (num / str / date) — light bg → dark translucent */
+  [data-theme="dark"] .field-type.num  { background: rgba(59,130,246,0.18);  color: #93c5fd; }
+  [data-theme="dark"] .field-type.str  { background: rgba(234,179,8,0.16);   color: #fde047; }
+  [data-theme="dark"] .field-type.date { background: rgba(168,85,247,0.18);  color: #d8b4fe; }
+
+  /* Card delete button hover — light pink → dark red wash */
+  [data-theme="dark"] .card-delete-btn:hover {
+    background: rgba(239,68,68,0.12);
+    border-color: rgba(239,68,68,0.35);
+  }
+
+  /* TouchPoints web-inquiry vehicle interest chips */
+  [data-theme="dark"] .tp-event-wi-vehicle-interest.buy       { background: rgba(13,148,136,0.20);  color: #5eead4; }
+  [data-theme="dark"] .tp-event-wi-vehicle-interest.lease     { background: rgba(126,84,217,0.22);  color: #c4b5fd; }
+  [data-theme="dark"] .tp-event-wi-vehicle-interest.trade     { background: rgba(245,158,11,0.20);  color: #fcd34d; }
+  [data-theme="dark"] .tp-event-wi-vehicle-interest.sell      { background: rgba(220,38,38,0.18);   color: #fca5a5; }
+  [data-theme="dark"] .tp-event-wi-vehicle-interest.testdrive { background: rgba(14,165,233,0.20);  color: #7dd3fc; }
+
+  /* Group row icons */
+  [data-theme="dark"] .tp-group-row-icon.teal { color: #5eead4; background: rgba(13,148,136,0.20); }
+
+  /* CX chips warning/citrine - amber readability */
+  [data-theme="dark"] .cx-chip.warning { background: rgba(234,179,8,0.18); color: #fde047; }
+  [data-theme="dark"] .cx-chip.citrine { background: rgba(247,231,75,0.20); color: #fde047; }
+
+  /* Input bg in dark mode is very dark — make .cc-day cells slightly lighter
+     so they read as distinct from canvas */
+  [data-theme="dark"] .cc-day { background: rgba(255,255,255,0.04); }
+  [data-theme="dark"] .cc-day:hover { background: rgba(255,255,255,0.07); }
+  [data-theme="dark"] .cc-day.is-outside { color: var(--text-tertiary); opacity: 0.45; }
+
+  /* TP calendar muted days */
+  [data-theme="dark"] .tp-cal-day.muted { opacity: 0.55; }
+
+  /* Table headers using --input-bg in dark mode — bump contrast on table rows */
+  [data-theme="dark"] .cx-table tbody tr:hover td { background: rgba(255,255,255,0.03); }
+
+  /* Builder Y / S inline badges (hardcoded #dcfce7 / #16a34a) — these
+     have inline styles so we override with attribute selectors when possible.
+     We can't override inline styles via CSS, so for those we keep them as-is
+     since they're high-contrast green text on green bg either way. */
+
+  /* Generic safety: any element using --input-bg as background should have
+     text-primary as fg — most do already, but be explicit for surfaces */
+  [data-theme="dark"] select,
+  [data-theme="dark"] input[type="text"],
+  [data-theme="dark"] input[type="number"],
+  [data-theme="dark"] input[type="search"],
+  [data-theme="dark"] textarea {
+    color: var(--text-primary);
+    background: var(--input-bg);
+  }
+
+  /* Search box specifically */
+  [data-theme="dark"] .search-box { background: var(--input-bg); }
+  [data-theme="dark"] .search-box input { color: var(--text-primary); }
+  [data-theme="dark"] .search-box input::placeholder { color: var(--text-tertiary); }
+
+
+  /* Inline-styled tag colors get a brightness boost in dark mode where the
+     dark amber/red text would otherwise read as muddy on translucent bg.
+     Targeted via attribute selectors on the .tag class. */
+  [data-theme="dark"] .tag[style*="rgba(234,179,8"] { color: #fde047 !important; }
+  [data-theme="dark"] .tag[style*="rgba(220,38,38"] { color: #fca5a5 !important; }
+
 </style>
 </head>
 <body>
@@ -10174,7 +10252,7 @@ const DashboardScreen = ({ navigate, dashboard, tweaks, savedReports = [], widge
                                     {showSource  && <td><span className="tag" style={{fontSize:'10px'}}>{r.source}</span></td>}
                                     {showVehicle && <td style={{maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.vehicle}</td>}
                                     <td>
-                                      <span className="tag" style={{fontSize:'10px',background: r.status==='Hot'?'#fee2e2':r.status==='Warm'?'#fef9c3':'var(--badge-bg)', color: r.status==='Hot'?'#dc2626':r.status==='Warm'?'#854d0e':'var(--badge-text)'}}>
+                                      <span className="tag" style={{fontSize:'10px',background: r.status==='Hot'?'rgba(220,38,38,0.15)':r.status==='Warm'?'rgba(234,179,8,0.18)':'var(--badge-bg)', color: r.status==='Hot'?'#dc2626':r.status==='Warm'?'#a16207':'var(--badge-text)'}}>
                                         {r.status}
                                       </span>
                                     </td>
@@ -10597,9 +10675,9 @@ const DataSourcesScreen = ({ navigate, extraDataSources = [], initialDB }) => {
 
   // Determine type badge color
   const typeStyle = (type) => {
-    if (type === 'num') return { background:'#dbeafe', color:'#1d4ed8' };
-    if (type === 'date') return { background:'#f3e8ff', color:'#7e22ce' };
-    return { background:'#fef9c3', color:'#854d0e' };
+    if (type === 'num') return { background:'rgba(59,130,246,0.18)', color:'#3b82f6' };
+    if (type === 'date') return { background:'rgba(168,85,247,0.18)', color:'#a855f7' };
+    return { background:'rgba(234,179,8,0.18)', color:'#a16207' };
   };
 
   return (
@@ -11630,7 +11708,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       onClick={() => { if (inY) removeYMetric(yMetrics.findIndex(m => m.field==='Row Count')); else { addYMetric('Row Count'); setActiveTarget('y'); } }}>
                       <span style={{fontSize:'12px',fontStyle:'italic',color:'var(--text-secondary)'}}>Row Count</span>
                       <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
-                        {inY && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'#dcfce7',padding:'1px 5px',borderRadius:3}}>Y</span>}
+                        {inY && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'rgba(22,163,74,0.18)',padding:'1px 5px',borderRadius:3}}>Y</span>}
                         <span className="field-type num">num</span>
                       </span>
                     </div>
@@ -11659,7 +11737,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       <span style={{fontSize:'12.5px'}}>{c.name}</span>
                       <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
                         {inX && <span style={{fontSize:'10px',color:'var(--accent)',fontWeight:600,background:'var(--accent-light)',padding:'1px 5px',borderRadius:3}}>X</span>}
-                        {inY && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'#dcfce7',padding:'1px 5px',borderRadius:3}}>Y</span>}
+                        {inY && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'rgba(22,163,74,0.18)',padding:'1px 5px',borderRadius:3}}>Y</span>}
                         <span className={`field-type ${c.type}`}>{c.type}</span>
                       </span>
                     </div>
@@ -11698,11 +11776,11 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                     {activeTarget==='y' && <span style={{marginLeft:'auto',fontSize:'10px',color:'#16a34a',fontWeight:500}}>← active</span>}
                   </div>
                   {yMetrics.length === 0
-                    ? <div className="drop-target" onClick={() => setActiveTarget('y')} style={{cursor:'pointer',border:activeTarget==='y'?'2px solid #16a34a':undefined,background:activeTarget==='y'?'#f0fdf4':undefined,transition:'all 0.15s'}}>
+                    ? <div className="drop-target" onClick={() => setActiveTarget('y')} style={{cursor:'pointer',border:activeTarget==='y'?'2px solid #16a34a':undefined,background:activeTarget==='y'?'rgba(22,163,74,0.10)':undefined,transition:'all 0.15s'}}>
                         <span className="drop-placeholder" style={{color:activeTarget==='y'?'#16a34a':undefined}}>{activeTarget==='y'?'← click any field below':'Click here to activate, then pick a field'}</span>
                       </div>
                     : <>
-                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,padding:'6px 10px',background:'#f0fdf4',border:'1px solid #16a34a',borderRadius:'var(--radius-sm)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,padding:'6px 10px',background:'rgba(22,163,74,0.10)',border:'1px solid #16a34a',borderRadius:'var(--radius-sm)'}}>
                           <span style={{fontSize:'12px',fontWeight:600,color:'#16a34a',flex:1}}>{yMetrics[0].field}</span>
                           <button style={{background:'none',border:'none',color:'#16a34a',cursor:'pointer',padding:2}} onClick={() => setYMetrics([])}><Icon name="close" size={11}/></button>
                         </div>
@@ -11730,7 +11808,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       }}>
                       <span style={{fontSize:'12px',fontStyle:'italic',color:'var(--text-secondary)'}}>Row Count</span>
                       <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
-                        {inS && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'#dcfce7',padding:'1px 5px',borderRadius:3}}>S</span>}
+                        {inS && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'rgba(22,163,74,0.18)',padding:'1px 5px',borderRadius:3}}>S</span>}
                         <span className="field-type num">num</span>
                       </span>
                     </div>
@@ -11754,7 +11832,7 @@ const ReportBuilderScreen = ({ navigate, tweaks, onSaveReport, editReport }) => 
                       <span style={{fontSize:'12.5px'}}>{c.name}</span>
                       <span style={{display:'flex',alignItems:'center',gap:4,marginLeft:'auto'}}>
                         {inX && <span style={{fontSize:'10px',color:'var(--accent)',fontWeight:600,background:'var(--accent-light)',padding:'1px 5px',borderRadius:3}}>M</span>}
-                        {inS && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'#dcfce7',padding:'1px 5px',borderRadius:3}}>S</span>}
+                        {inS && <span style={{fontSize:'10px',color:'#16a34a',fontWeight:600,background:'rgba(22,163,74,0.18)',padding:'1px 5px',borderRadius:3}}>S</span>}
                         <span className={`field-type ${c.type}`}>{c.type}</span>
                       </span>
                     </div>
