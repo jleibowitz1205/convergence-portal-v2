@@ -2771,6 +2771,379 @@
   }
   .tp-social-status.has-value { color: #16a34a; }
 
+  /* Notes tab */
+  .tp-notes-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .tp-notes-count {
+    font-family: var(--font-subheading);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  .tp-notes-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-family: var(--font-subheading);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tp-notes-add-btn:hover {
+    background: var(--accent-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(94,16,188,0.25);
+  }
+  .tp-notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .tp-note-row {
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 9px 11px;
+    background: var(--card-bg);
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .tp-note-row:hover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+  }
+  .tp-note-subject {
+    font-family: var(--font-subheading);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+  }
+  .tp-note-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-subheading);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+  .tp-note-meta-dot { opacity: 0.5; }
+  .tp-note-meta-edited {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tp-notes-empty {
+    padding: 24px 16px;
+    text-align: center;
+    border: 1px dashed var(--card-border);
+    border-radius: 10px;
+    color: var(--text-tertiary);
+    font-family: var(--font-subheading);
+    font-size: 11.5px;
+  }
+
+  /* Note editor modal */
+  .note-editor-subject {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    font-family: var(--font-subheading);
+    font-size: 14px;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 10px;
+  }
+  .note-editor-subject:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94,16,188,0.10); }
+  .note-editor-toolbar {
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: var(--input-bg);
+    flex-wrap: wrap;
+  }
+  .note-editor-tb-btn {
+    width: 28px; height: 28px;
+    border-radius: 5px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-body);
+    font-size: 13px;
+    transition: all 0.10s;
+  }
+  .note-editor-tb-btn:hover {
+    background: var(--card-bg);
+    color: var(--accent);
+  }
+  .note-editor-tb-btn.is-active {
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+  .note-editor-tb-sep {
+    width: 1px;
+    background: var(--border);
+    margin: 4px 2px;
+  }
+  .note-editor-body {
+    min-height: 220px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    background: var(--input-bg);
+    padding: 12px 14px;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    line-height: 1.55;
+    outline: none;
+  }
+  .note-editor-body:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94,16,188,0.08); }
+  .note-editor-body:empty:before {
+    content: attr(data-placeholder);
+    color: var(--text-tertiary);
+    font-style: italic;
+    pointer-events: none;
+  }
+  .note-editor-body p { margin: 0 0 8px; }
+  .note-editor-body p:last-child { margin-bottom: 0; }
+  .note-editor-body ul, .note-editor-body ol { margin: 0 0 8px; padding-left: 22px; }
+  .note-editor-body li { margin-bottom: 3px; }
+  .note-editor-body strong { font-weight: 700; }
+  .note-editor-body em { font-style: italic; }
+  .note-editor-body u { text-decoration: underline; }
+  .note-editor-body a { color: var(--accent); text-decoration: underline; }
+  .note-editor-meta {
+    font-family: var(--font-subheading);
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+    margin-top: 8px;
+  }
+  .note-editor-meta-edited { color: var(--accent); font-weight: 600; }
+
+  /* Calendar Events tab */
+  .cc-wrap {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .cc-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 2px;
+  }
+  .cc-title {
+    font-family: var(--font-subheading);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+  }
+  .cc-nav-btn {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s;
+  }
+  .cc-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .cc-today-btn {
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-subheading);
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: all 0.12s;
+  }
+  .cc-today-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .cc-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  .cc-dow {
+    text-align: center;
+    font-family: var(--font-subheading);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 4px 0 6px;
+  }
+  .cc-day {
+    aspect-ratio: 1;
+    border-radius: 6px;
+    background: var(--input-bg);
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 3px 2px 2px;
+    cursor: pointer;
+    transition: border-color 0.10s;
+    position: relative;
+    min-height: 38px;
+  }
+  .cc-day:hover { border-color: var(--card-border); }
+  .cc-day.is-outside { color: var(--text-tertiary); opacity: 0.35; }
+  .cc-day.is-today {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .cc-day.is-selected:not(.is-today) { border-color: var(--accent); }
+  .cc-day-num {
+    font-family: var(--font-subheading);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .cc-day.is-today .cc-day-num { color: #fff; }
+  .cc-day-dots {
+    display: flex;
+    gap: 2px;
+    margin-top: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+  .cc-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cc-day.is-today .cc-dot { box-shadow: 0 0 0 1px rgba(255,255,255,0.6); }
+  .cc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 4px 4px;
+    margin-top: 8px;
+    border-top: 1px solid var(--card-border);
+  }
+  .cc-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-subheading);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+  .cc-legend-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .cc-events {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--input-bg);
+    border-radius: 8px;
+    border: 1px solid var(--card-border);
+  }
+  .cc-events-head {
+    font-family: var(--font-subheading);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+  .cc-event-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--card-border);
+  }
+  .cc-event-row:last-child { border-bottom: none; }
+  .cc-event-bar {
+    width: 3px;
+    align-self: stretch;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .cc-event-body { flex: 1; min-width: 0; }
+  .cc-event-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-subheading);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .cc-event-title {
+    font-family: var(--font-subheading);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+  .cc-event-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+    line-height: 1.35;
+  }
+  .cc-events-empty {
+    padding: 8px 4px;
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-family: var(--font-subheading);
+  }
+
   /* Timeline */
   .tp-timeline { overflow-y: auto; flex:1; padding: 20px 24px; }
   .tp-event { display: flex; gap: 14px; position: relative; }
@@ -3921,6 +4294,7 @@ const Icon = ({ name, size = 16, style = {} }) => {
     tiktok: <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" style={style}><path d="M10.5 2h-1.7v8.6c0 .94-.78 1.7-1.74 1.7s-1.74-.76-1.74-1.7c0-.93.78-1.7 1.74-1.7.18 0 .35.03.51.08V7.27a3.65 3.65 0 00-.51-.04C5.13 7.23 3.5 8.83 3.5 10.81S5.13 14.4 7.06 14.4c1.93 0 3.56-1.6 3.56-3.59V6.13c.72.5 1.6.8 2.55.8V5.27c-1.56 0-2.83-1.26-2.67-3.27z"/></svg>,
     linkedin: <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" style={style}><path d="M3 5.5h2.4V13H3V5.5zM4.2 2a1.4 1.4 0 110 2.8 1.4 1.4 0 010-2.8zM6.7 5.5h2.3v1c.33-.55 1.13-1.2 2.33-1.2 2.5 0 2.97 1.6 2.97 3.7V13h-2.4V9.6c0-.83-.02-1.9-1.18-1.9-1.18 0-1.36.9-1.36 1.84V13H6.7V5.5z"/></svg>,
     youtube: <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" style={style}><path d="M14.5 5.4a1.7 1.7 0 00-1.2-1.2C12.27 4 8 4 8 4s-4.27 0-5.3.2A1.7 1.7 0 001.5 5.4C1.3 6.43 1.3 8 1.3 8s0 1.57.2 2.6c.16.62.62 1.07 1.2 1.2C3.73 12 8 12 8 12s4.27 0 5.3-.2c.58-.13 1.04-.58 1.2-1.2.2-1.03.2-2.6.2-2.6s0-1.57-.2-2.6zM6.7 9.93V6.07L10 8 6.7 9.93z"/></svg>,
+    note: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><path d="M3 2h7l3 3v9H3V2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M10 2v3h3M5.5 7.5h5M5.5 10h5M5.5 12.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
   };
   return icons[name] || <span style={{width: size, height: size, display:'inline-block'}}/>;
 };
@@ -5466,7 +5840,7 @@ const TouchPointsScreen = () => {
     setSmsPopover(null);
   };
 
-  // Contact summary card tab: 'info' or 'social'
+  // Contact summary card tab: 'info' | 'social' | 'notes' | 'calendar'
   const [contactTab, setContactTab] = useState('info');
   // Social channels per contact — handles stored under platform keys.
   const [socialChannelsMap, setSocialChannelsMap] = useState({});
@@ -5477,6 +5851,46 @@ const TouchPointsScreen = () => {
       [id]: { ...(prev[id] || {}), [platform]: handle }
     }));
   };
+
+  // Notes per contact: { contactId: [{ id, subject, body, createdAt, updatedAt }] }
+  const [notesMap, setNotesMap] = useState({});
+  const [noteEditor, setNoteEditor] = useState(null); // { mode:'add'|'edit', noteId?:string }
+  const getNotes = (id) => notesMap[id] || [];
+  const saveNote = (contactId, { id, subject, body }) => {
+    const now = new Date().toISOString();
+    setNotesMap(prev => {
+      const list = prev[contactId] || [];
+      if (id) {
+        const updated = list.map(n =>
+          n.id === id ? { ...n, subject, body, updatedAt: now } : n
+        );
+        return { ...prev, [contactId]: updated };
+      }
+      const newNote = {
+        id: 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        subject: subject || 'Untitled note',
+        body: body || '',
+        createdAt: now,
+        updatedAt: now,
+      };
+      return { ...prev, [contactId]: [newNote, ...list] };
+    });
+    setNoteEditor(null);
+  };
+  const deleteNote = (contactId, noteId) => {
+    setNotesMap(prev => ({
+      ...prev,
+      [contactId]: (prev[contactId] || []).filter(n => n.id !== noteId),
+    }));
+    setNoteEditor(null);
+  };
+
+  // Calendar view month (for the Calendar Events tab) — separate from any other calMonth
+  const [contactCalMonth, setContactCalMonth] = useState(() => {
+    const d = new Date();
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
+
   const [associationsMap, setAssociationsMap] = useState(INITIAL_ASSOCIATIONS);
   const [showAddContact, setShowAddContact]   = useState(false);
   const [editing, setEditing] = useState({ contactId:null, field:null }); // field: 'email' | 'dob' | null
@@ -5502,6 +5916,7 @@ const TouchPointsScreen = () => {
     setShowAddContact(false);
     setEditing({ contactId:null, field:null });
     setContactTab('info');
+    setNoteEditor(null);
   }, [selectedId]);
 
   const customerVehicles = vehiclesMap[selectedId] || [];
@@ -5967,21 +6382,35 @@ const TouchPointsScreen = () => {
                       <div className="tp-contact-summary-phone">{selectedCustomer.phone}</div>
                     </div>
                   </div>
-                  {/* Tabs: Contact Info / Social Channels */}
+                  {/* Tabs: Contact Info / Social Channels / Notes / Calendar */}
                   <div className="tp-contact-tabs">
                     <button
                       className={`tp-contact-tab${contactTab === 'info' ? ' is-active' : ''}`}
                       onClick={() => setContactTab('info')}
                     >
                       <Icon name="userOutline" size={11}/>
-                      <span>Contact Info</span>
+                      <span>Info</span>
                     </button>
                     <button
                       className={`tp-contact-tab${contactTab === 'social' ? ' is-active' : ''}`}
                       onClick={() => setContactTab('social')}
                     >
                       <Icon name="link" size={11}/>
-                      <span>Social Channels</span>
+                      <span>Social</span>
+                    </button>
+                    <button
+                      className={`tp-contact-tab${contactTab === 'notes' ? ' is-active' : ''}`}
+                      onClick={() => setContactTab('notes')}
+                    >
+                      <Icon name="note" size={11}/>
+                      <span>Notes</span>
+                    </button>
+                    <button
+                      className={`tp-contact-tab${contactTab === 'calendar' ? ' is-active' : ''}`}
+                      onClick={() => setContactTab('calendar')}
+                    >
+                      <Icon name="calendarCheck" size={11}/>
+                      <span>Calendar</span>
                     </button>
                   </div>
                   {contactTab === 'info' && (
@@ -6068,6 +6497,87 @@ const TouchPointsScreen = () => {
                       </div>
                     );
                   })()}
+                  {contactTab === 'notes' && (() => {
+                    const notes = getNotes(selectedCustomer.id);
+                    // Strip HTML for preview snippet under subject line
+                    const stripHtml = (html) => {
+                      const tmp = document.createElement('div');
+                      tmp.innerHTML = html || '';
+                      return (tmp.textContent || tmp.innerText || '').trim();
+                    };
+                    const formatStamp = (iso) => {
+                      const d = new Date(iso);
+                      if (isNaN(d)) return iso;
+                      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                      let h = d.getHours();
+                      const m = d.getMinutes();
+                      const ampm = h >= 12 ? 'PM' : 'AM';
+                      h = h % 12 || 12;
+                      return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${h}:${String(m).padStart(2,'0')} ${ampm}`;
+                    };
+                    return (
+                      <div>
+                        <div className="tp-notes-head">
+                          <div className="tp-notes-count">
+                            {notes.length} {notes.length === 1 ? 'Note' : 'Notes'}
+                          </div>
+                          <button
+                            className="tp-notes-add-btn"
+                            onClick={() => setNoteEditor({ mode:'add' })}
+                          >
+                            <Icon name="plus" size={11}/>
+                            <span>Add Note</span>
+                          </button>
+                        </div>
+                        {notes.length === 0 ? (
+                          <div className="tp-notes-empty">
+                            No notes yet. Click "Add Note" to create one.
+                          </div>
+                        ) : (
+                          <div className="tp-notes-list">
+                            {notes.map(n => {
+                              const edited = n.updatedAt !== n.createdAt;
+                              const snippet = stripHtml(n.body).slice(0, 80);
+                              return (
+                                <div
+                                  key={n.id}
+                                  className="tp-note-row"
+                                  onClick={() => setNoteEditor({ mode:'edit', noteId: n.id })}
+                                >
+                                  <div className="tp-note-subject">{n.subject}</div>
+                                  {snippet && (
+                                    <div style={{
+                                      fontSize:11, color:'var(--text-secondary)',
+                                      lineHeight:1.4, overflow:'hidden',
+                                      textOverflow:'ellipsis', whiteSpace:'nowrap'
+                                    }}>
+                                      {snippet}
+                                    </div>
+                                  )}
+                                  <div className="tp-note-meta">
+                                    <span>{formatStamp(n.updatedAt)}</span>
+                                    {edited && (
+                                      <>
+                                        <span className="tp-note-meta-dot">·</span>
+                                        <span className="tp-note-meta-edited">edited</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {contactTab === 'calendar' && (
+                    <ContactCalendar
+                      timeline={selectedTimeline}
+                      calMonth={contactCalMonth}
+                      setCalMonth={setContactCalMonth}
+                    />
+                  )}
                 </div>
               );
             })()}
@@ -6544,6 +7054,18 @@ const TouchPointsScreen = () => {
             setShowAddContact(false);
           }}
           onClose={() => setShowAddContact(false)}
+        />
+      )}
+
+      {/* Note Editor Modal */}
+      {noteEditor && selectedCustomer && (
+        <NoteEditorModal
+          mode={noteEditor.mode}
+          existingNote={noteEditor.noteId ? getNotes(selectedCustomer.id).find(n => n.id === noteEditor.noteId) : null}
+          contactName={selectedCustomer.name}
+          onSave={(data) => saveNote(selectedCustomer.id, data)}
+          onDelete={(id) => deleteNote(selectedCustomer.id, id)}
+          onClose={() => setNoteEditor(null)}
         />
       )}
 
@@ -7030,6 +7552,420 @@ const AssociateContactModal = ({ candidates, onSelect, onClose }) => {
           <button className="nc-btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── NOTE EDITOR MODAL ───────────────────────────────────────────────────────
+const NoteEditorModal = ({ mode, existingNote, contactName, onSave, onDelete, onClose }) => {
+  const [subject, setSubject] = React.useState(existingNote ? existingNote.subject : '');
+  const bodyRef = React.useRef(null);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [activeStates, setActiveStates] = React.useState({});
+
+  // Seed the contentEditable body once on mount with the existing content.
+  // contentEditable can't bind via value, so initial HTML is set imperatively.
+  React.useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.innerHTML = existingNote ? existingNote.body : '';
+      bodyRef.current.focus();
+      if (existingNote) {
+        const range = document.createRange();
+        range.selectNodeContents(bodyRef.current);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+  }, []);
+
+  // Track which formatting marks are active so toolbar buttons can highlight.
+  const refreshActive = () => {
+    try {
+      setActiveStates({
+        bold:      document.queryCommandState('bold'),
+        italic:    document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+        ul:        document.queryCommandState('insertUnorderedList'),
+        ol:        document.queryCommandState('insertOrderedList'),
+      });
+    } catch (e) { /* ignore */ }
+  };
+
+  const exec = (cmd, arg) => {
+    document.execCommand(cmd, false, arg);
+    bodyRef.current && bodyRef.current.focus();
+    refreshActive();
+  };
+
+  const handleLink = () => {
+    const url = window.prompt('Enter URL (https://…)');
+    if (url) exec('createLink', url);
+  };
+
+  const handleSave = () => {
+    const body = bodyRef.current ? bodyRef.current.innerHTML : '';
+    onSave({
+      id: existingNote ? existingNote.id : null,
+      subject: subject.trim() || 'Untitled note',
+      body,
+    });
+  };
+
+  const formatStamp = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let h = d.getHours();
+    const m = d.getMinutes();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${h}:${String(m).padStart(2,'0')} ${ampm}`;
+  };
+
+  const isEdit = mode === 'edit' && existingNote;
+  const wasEdited = isEdit && existingNote.updatedAt !== existingNote.createdAt;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="nc-modal" style={{width:640, maxWidth:'94vw'}} onClick={e => e.stopPropagation()}>
+        <div className="nc-header">
+          <div className="nc-title">
+            {isEdit ? 'Edit Note' : 'Add Note'}
+            <span style={{
+              fontSize:11, fontWeight:500, color:'var(--text-tertiary)',
+              fontFamily:'var(--font-subheading)', marginLeft:8
+            }}>
+              for {contactName}
+            </span>
+          </div>
+          <button className="nc-close" onClick={onClose} title="Close">
+            <Icon name="close" size={13}/>
+          </button>
+        </div>
+
+        <div className="nc-body">
+          <input
+            className="note-editor-subject"
+            placeholder="Subject"
+            value={subject}
+            onChange={e => setSubject(e.target.value)}
+            maxLength={120}
+          />
+
+          {/* Formatting toolbar */}
+          <div className="note-editor-toolbar">
+            <button
+              className={`note-editor-tb-btn${activeStates.bold ? ' is-active' : ''}`}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => exec('bold')}
+              title="Bold (Ctrl+B)"
+            >
+              <strong>B</strong>
+            </button>
+            <button
+              className={`note-editor-tb-btn${activeStates.italic ? ' is-active' : ''}`}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => exec('italic')}
+              title="Italic (Ctrl+I)"
+            >
+              <em>I</em>
+            </button>
+            <button
+              className={`note-editor-tb-btn${activeStates.underline ? ' is-active' : ''}`}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => exec('underline')}
+              title="Underline (Ctrl+U)"
+            >
+              <u>U</u>
+            </button>
+            <div className="note-editor-tb-sep"/>
+            <button
+              className={`note-editor-tb-btn${activeStates.ul ? ' is-active' : ''}`}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => exec('insertUnorderedList')}
+              title="Bullet list"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <circle cx="3" cy="4" r="1" fill="currentColor"/>
+                <circle cx="3" cy="8" r="1" fill="currentColor"/>
+                <circle cx="3" cy="12" r="1" fill="currentColor"/>
+                <path d="M6 4h8M6 8h8M6 12h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <button
+              className={`note-editor-tb-btn${activeStates.ol ? ' is-active' : ''}`}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => exec('insertOrderedList')}
+              title="Numbered list"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <text x="1" y="6" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="monospace">1.</text>
+                <text x="1" y="11" fontSize="5" fontWeight="700" fill="currentColor" fontFamily="monospace">2.</text>
+                <path d="M6 4h8M6 9h8M6 14h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <div className="note-editor-tb-sep"/>
+            <button
+              className="note-editor-tb-btn"
+              onMouseDown={e => e.preventDefault()}
+              onClick={handleLink}
+              title="Insert link"
+            >
+              <Icon name="link" size={13}/>
+            </button>
+            <button
+              className="note-editor-tb-btn"
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => exec('removeFormat')}
+              title="Clear formatting"
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <path d="M3 4h10M6 4l-1 10M10 4l-2 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                <path d="M11 10l3 3M14 10l-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div
+            ref={bodyRef}
+            className="note-editor-body"
+            contentEditable
+            suppressContentEditableWarning
+            data-placeholder="Write your note here…"
+            onKeyUp={refreshActive}
+            onMouseUp={refreshActive}
+            onFocus={refreshActive}
+          />
+
+          {isEdit && (
+            <div className="note-editor-meta">
+              Created {formatStamp(existingNote.createdAt)}
+              {wasEdited && (
+                <>
+                  {' · '}
+                  <span className="note-editor-meta-edited">
+                    Last edited {formatStamp(existingNote.updatedAt)}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="nc-footer">
+          {isEdit && (
+            <div style={{marginRight:'auto', display:'flex', gap:8, alignItems:'center'}}>
+              {confirmDelete ? (
+                <>
+                  <span style={{fontSize:12, color:'var(--text-secondary)', fontFamily:'var(--font-subheading)'}}>
+                    Delete this note?
+                  </span>
+                  <button
+                    className="nc-btn-ghost"
+                    style={{padding:'5px 10px', fontSize:12}}
+                    onClick={() => setConfirmDelete(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    style={{
+                      background:'#dc2626', color:'#fff', border:'none',
+                      padding:'6px 12px', borderRadius:'var(--radius-sm)',
+                      fontSize:12, fontWeight:600, cursor:'pointer',
+                      fontFamily:'var(--font-body)',
+                    }}
+                    onClick={() => onDelete(existingNote.id)}
+                  >
+                    Confirm Delete
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="nc-btn-ghost"
+                  style={{color:'#dc2626', borderColor:'rgba(220,38,38,0.30)'}}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Icon name="trash" size={12}/>
+                  <span style={{marginLeft:5}}>Delete</span>
+                </button>
+              )}
+            </div>
+          )}
+          <button className="nc-btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="nc-btn-primary" onClick={handleSave}>
+            {isEdit ? 'Save Changes' : 'Save Note'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── CONTACT CALENDAR ────────────────────────────────────────────────────────
+const ContactCalendar = ({ timeline, calMonth, setCalMonth }) => {
+  // Only these touchpoint types appear on the calendar.
+  const CAL_TYPES = {
+    service_appt: { label:'Service Appointment', color:'#16a34a' },
+    appointment:  { label:'Sales Appointment',   color:'#5e10bc' },
+    followup:     { label:'Follow Up',           color:'#f59e0b' },
+    phone_call:   { label:'Phone Call',          color:'#0ea5e9' },
+  };
+
+  // Parse "May 5, 2026" style date strings into a real Date.
+  const parseDate = (s) => {
+    if (!s) return null;
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  };
+
+  // Bucket events by y-m-d
+  const eventsByDay = React.useMemo(() => {
+    const map = {};
+    (timeline || []).forEach(evt => {
+      if (!CAL_TYPES[evt.type]) return;
+      const d = parseDate(evt.date);
+      if (!d) return;
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(evt);
+    });
+    return map;
+  }, [timeline]);
+
+  const [selectedDay, setSelectedDay] = React.useState(null);
+  React.useEffect(() => { setSelectedDay(null); }, [calMonth.y, calMonth.m]);
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dowShort = ['S','M','T','W','T','F','S'];
+
+  // Build the 6-row grid: leading days from prev month, current month days, trailing from next month
+  const firstOfMonth = new Date(calMonth.y, calMonth.m, 1);
+  const daysInMonth  = new Date(calMonth.y, calMonth.m + 1, 0).getDate();
+  const startDow     = firstOfMonth.getDay();
+  const cells = [];
+  const prevMonthDays = new Date(calMonth.y, calMonth.m, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--) {
+    cells.push({ y: (calMonth.m === 0 ? calMonth.y - 1 : calMonth.y), m: (calMonth.m === 0 ? 11 : calMonth.m - 1), d: prevMonthDays - i, outside: true });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ y: calMonth.y, m: calMonth.m, d, outside: false });
+  }
+  let nextDay = 1;
+  while (cells.length < 42) {
+    cells.push({ y: (calMonth.m === 11 ? calMonth.y + 1 : calMonth.y), m: (calMonth.m === 11 ? 0 : calMonth.m + 1), d: nextDay++, outside: true });
+  }
+
+  const today = new Date();
+  const isToday = (c) => c.y === today.getFullYear() && c.m === today.getMonth() && c.d === today.getDate();
+  const isSelected = (c) => selectedDay && selectedDay.y === c.y && selectedDay.m === c.m && selectedDay.d === c.d;
+  const eventsFor = (c) => eventsByDay[`${c.y}-${c.m}-${c.d}`] || [];
+
+  const prevMonth = () => setCalMonth(({y,m}) => m === 0 ? {y:y-1, m:11} : {y, m:m-1});
+  const nextMonth = () => setCalMonth(({y,m}) => m === 11 ? {y:y+1, m:0} : {y, m:m+1});
+  const goToday = () => {
+    setCalMonth({ y: today.getFullYear(), m: today.getMonth() });
+    setSelectedDay({ y: today.getFullYear(), m: today.getMonth(), d: today.getDate() });
+  };
+
+  const selectedEvents = selectedDay ? eventsFor(selectedDay) : [];
+
+  return (
+    <div className="cc-wrap">
+      <div className="cc-toolbar">
+        <button className="cc-nav-btn" onClick={prevMonth} title="Previous month">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+            <path d="M10 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <div className="cc-title">{monthNames[calMonth.m]} {calMonth.y}</div>
+        <div style={{display:'flex', gap:4, alignItems:'center'}}>
+          <button className="cc-today-btn" onClick={goToday}>Today</button>
+          <button className="cc-nav-btn" onClick={nextMonth} title="Next month">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="cc-grid">
+        {dowShort.map((d, i) => (
+          <div className="cc-dow" key={`dow-${i}`}>{d}</div>
+        ))}
+        {cells.map((c, i) => {
+          const events = eventsFor(c);
+          // Deduplicate dot colors so a day with 3 phone_calls only shows one blue dot
+          const dotColors = [...new Set(events.map(e => CAL_TYPES[e.type].color))];
+          const classes = [
+            'cc-day',
+            c.outside ? 'is-outside' : '',
+            isToday(c) ? 'is-today' : '',
+            isSelected(c) ? 'is-selected' : '',
+          ].filter(Boolean).join(' ');
+          return (
+            <div
+              key={`cell-${i}`}
+              className={classes}
+              onClick={() => setSelectedDay({ y:c.y, m:c.m, d:c.d })}
+              title={events.length ? `${events.length} event${events.length === 1 ? '' : 's'}` : ''}
+            >
+              <span className="cc-day-num">{c.d}</span>
+              {dotColors.length > 0 && (
+                <div className="cc-day-dots">
+                  {dotColors.slice(0, 4).map((color, di) => (
+                    <span key={di} className="cc-dot" style={{background: color}}/>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="cc-legend">
+        {Object.entries(CAL_TYPES).map(([key, info]) => (
+          <span className="cc-legend-item" key={key}>
+            <span className="cc-legend-dot" style={{background: info.color}}/>
+            <span>{info.label}</span>
+          </span>
+        ))}
+      </div>
+
+      {selectedDay && (
+        <div className="cc-events">
+          <div className="cc-events-head">
+            {monthNames[selectedDay.m]} {selectedDay.d}, {selectedDay.y}
+          </div>
+          {selectedEvents.length === 0 ? (
+            <div className="cc-events-empty">No calendar events on this day.</div>
+          ) : (
+            selectedEvents.map(evt => {
+              const info = CAL_TYPES[evt.type];
+              return (
+                <div key={evt.id} className="cc-event-row">
+                  <div className="cc-event-bar" style={{background: info.color}}/>
+                  <div className="cc-event-body">
+                    <div className="cc-event-meta-row">
+                      <span style={{color: info.color}}>{info.label}</span>
+                      {evt.time && (
+                        <>
+                          <span style={{color:'var(--text-tertiary)', opacity:0.6}}>·</span>
+                          <span style={{color:'var(--text-secondary)'}}>{evt.time}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="cc-event-title">{evt.title}</div>
+                    {evt.subtitle && <div className="cc-event-sub">{evt.subtitle}</div>}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 };
