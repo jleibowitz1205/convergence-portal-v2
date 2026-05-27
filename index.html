@@ -3177,6 +3177,82 @@
   .tp-event-sub { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
   .tp-event-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
+  /* Web inquiry — richer event card variant with provider & vehicles */
+  .tp-event-wi-from {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: rgba(13,148,136,0.08);
+    border: 1px solid rgba(13,148,136,0.22);
+    color: #0d9488;
+    font-family: monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+  }
+  [data-theme="dark"] .tp-event-wi-from { background: rgba(13,148,136,0.16); }
+  .tp-event-wi-vehicles {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .tp-event-wi-vehicle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+  }
+  .tp-event-wi-vehicle-interest {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-family: var(--font-subheading);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .tp-event-wi-vehicle-interest.buy       { background: rgba(13,148,136,0.12);  color: #0d9488; }
+  .tp-event-wi-vehicle-interest.lease     { background: rgba(94,16,188,0.12);   color: #5e10bc; }
+  .tp-event-wi-vehicle-interest.trade     { background: rgba(245,158,11,0.13);  color: #b8740b; }
+  .tp-event-wi-vehicle-interest.sell      { background: rgba(220,38,38,0.10);   color: #b91c1c; }
+  .tp-event-wi-vehicle-interest.testdrive { background: rgba(14,165,233,0.12);  color: #0284c7; }
+  .tp-event-wi-vehicle-interest.other     { background: var(--card-border); color: var(--text-secondary); }
+  .tp-event-wi-vehicle-info { flex: 1; min-width: 0; }
+  .tp-event-wi-vehicle-title {
+    font-family: var(--font-subheading);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tp-event-wi-vehicle-sub {
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+    line-height: 1.3;
+    margin-top: 1px;
+    font-family: var(--font-subheading);
+  }
+  .tp-event-wi-vehicle-vin {
+    font-family: monospace;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+  }
+
   /* TP right column - summary */
   .tp-summary-pad { padding: 18px 16px 10px; flex-shrink:0; }
   .tp-summary-label {
@@ -3218,6 +3294,8 @@
   .tp-summary-pill.neon { background: rgba(128,229,92,0.10); }
   .tp-summary-pill.purple { background: rgba(126,84,217,0.10); }
   .tp-summary-pill.citrine { background: rgba(247,231,75,0.10); }
+  .tp-summary-pill.teal { background: rgba(13,148,136,0.10); }
+  .tp-group-row-icon.teal { color: #0d9488; background: rgba(13,148,136,0.13); }
   .tp-summary-pill-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
   .tp-summary-pill-label {
     font-family: var(--font-subheading);
@@ -4280,6 +4358,7 @@ const Icon = ({ name, size = 16, style = {} }) => {
     wrench: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><path d="M11.5 2a3 3 0 00-2.83 4L2.5 12.17a1.5 1.5 0 102.12 2.12L10.79 8.17A3 3 0 1011.5 2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>,
     accountCheck: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><circle cx="6" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M1.5 13.5c0-2.21 2.02-4 4.5-4 .94 0 1.82.26 2.55.7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M10 11.5l2 2 3-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
     cursorClick: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><path d="M5 2v3M2 5h3M3 3l2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M7 6l7 3.5-3 1-1.5 3L7 6z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>,
+    globe: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4"/><ellipse cx="8" cy="8" rx="2.6" ry="6" stroke="currentColor" strokeWidth="1.3"/><path d="M2 8h12" stroke="currentColor" strokeWidth="1.3"/></svg>,
     upload: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><path d="M8 11V3M5 6l3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>,
     cellphone: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><rect x="5" y="1.5" width="6" height="13" rx="1.2" stroke="currentColor" strokeWidth="1.3"/><circle cx="8" cy="12" r="0.6" fill="currentColor"/></svg>,
     mail: <svg width={size} height={size} viewBox="0 0 16 16" fill="none" style={style}><rect x="1.5" y="3" width="13" height="10" rx="1.4" stroke="currentColor" strokeWidth="1.3"/><path d="M2 4.5l6 4.5 6-4.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>,
@@ -4540,6 +4619,7 @@ const TP_TYPE = {
   'phone_call':    { label:'Phone Call',           icon:'phone',         color:'#7E54D9', bg:'rgba(126,84,217,0.13)' },
   'text_inbound':  { label:'Inbound Text',         icon:'msgIn',         color:'#F7E74B', bg:'rgba(247,231,75,0.12)' },
   'text_outbound': { label:'Outbound Text',        icon:'msgOut',        color:'#F7E74B', bg:'rgba(247,231,75,0.12)' },
+  'web_inquiry':   { label:'Web Inquiry',          icon:'globe',         color:'#0d9488', bg:'rgba(13,148,136,0.12)' },
 };
 
 const CX_CUSTOMERS = [
@@ -5779,10 +5859,212 @@ const MiniDatePicker = ({ value, onSelect, onClose }) => {
 };
 
 // ─── TOUCHPOINTS SCREEN ──────────────────────────────────────────────────────
-const TouchPointsScreen = () => {
+// ═══════════════════════════════════════════════════════════════════════════
+//  ADF XML lead parser + association helpers
+//  Used by TouchPoints to materialize web_inquiry events from leadProviders
+//  submissions and attach them to matching contacts (by phone or email).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Pull the text content of the first matching tag inside a parent DOM node.
+const adfGetText = (parent, tag) => {
+  if (!parent) return '';
+  const el = parent.getElementsByTagName(tag)[0];
+  return el ? (el.textContent || '').trim() : '';
+};
+
+// Pull every element with the given tag inside `parent`.
+const adfGetAll = (parent, tag) => {
+  if (!parent) return [];
+  return Array.from(parent.getElementsByTagName(tag));
+};
+
+// Strip non-digits from a phone string, then keep the last 10 (NANP) so
+// "+1 (555) 847-2910", "5558472910", and "+15558472910" all compare equal.
+const phoneDigits10 = (s) => (s || '').replace(/\D/g, '').slice(-10);
+
+// Parse a single ADF XML string into a normalized lead object. Returns null
+// on parse failure so the caller can degrade gracefully.
+const parseAdfXml = (raw) => {
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(raw, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length > 0) return null;
+
+    const prospect = doc.getElementsByTagName('prospect')[0];
+    if (!prospect) return null;
+
+    const requestdate = adfGetText(prospect, 'requestdate');
+
+    // Customer — contact under <customer>
+    const customer = prospect.getElementsByTagName('customer')[0];
+    const cContact = customer ? customer.getElementsByTagName('contact')[0] : null;
+
+    // Pull all names ('first', 'last', 'full') and pick whichever is present.
+    let firstName = '', lastName = '', fullName = '';
+    if (cContact) {
+      const names = adfGetAll(cContact, 'name');
+      names.forEach(n => {
+        const part = (n.getAttribute('part') || '').toLowerCase();
+        const text = (n.textContent || '').trim();
+        if (part === 'first') firstName = text;
+        else if (part === 'last') lastName = text;
+        else if (part === 'full' || !part) fullName = fullName || text;
+      });
+    }
+    if (!fullName) fullName = [firstName, lastName].filter(Boolean).join(' ');
+
+    const email = cContact ? adfGetText(cContact, 'email') : '';
+    // Take the first phone we find — ADF allows multiple but for matching
+    // any one valid number is sufficient.
+    const phones = cContact ? adfGetAll(cContact, 'phone').map(p => (p.textContent || '').trim()).filter(Boolean) : [];
+    const phone = phones[0] || '';
+
+    // Vehicles — ADF allows multiple <vehicle> blocks with different intents
+    const vehicles = adfGetAll(prospect, 'vehicle').map(v => {
+      const interest = (v.getAttribute('interest') || '').toLowerCase(); // buy|lease|sell|trade-in|test-drive
+      const status   = (v.getAttribute('status') || '').toLowerCase();   // new|used
+      return {
+        interest,
+        status,
+        year:  adfGetText(v, 'year'),
+        make:  adfGetText(v, 'make'),
+        model: adfGetText(v, 'model'),
+        vin:   adfGetText(v, 'vin'),
+        trim:  adfGetText(v, 'trim'),
+      };
+    });
+
+    // Provider — name of the lead source (Edmunds, Cars.com, etc).
+    const provider = prospect.getElementsByTagName('provider')[0];
+    let providerName = '';
+    if (provider) {
+      const pNames = adfGetAll(provider, 'name');
+      if (pNames.length) providerName = (pNames[0].textContent || '').trim();
+      if (!providerName) providerName = adfGetText(provider, 'name');
+    }
+
+    // Customer comments (free-form note from the buyer)
+    const comments = customer ? adfGetText(customer, 'comments') : '';
+
+    return {
+      requestdate,
+      customer: { firstName, lastName, fullName, email, phone, phones },
+      vehicles,
+      providerName,
+      comments,
+    };
+  } catch (e) {
+    return null;
+  }
+};
+
+// Human-readable label for a vehicle's interest attribute.
+const adfVehicleInterestMeta = (interest) => {
+  switch ((interest || '').toLowerCase()) {
+    case 'buy':        return { label: 'New Interest', cls: 'buy' };
+    case 'lease':      return { label: 'Lease',        cls: 'lease' };
+    case 'trade-in':   return { label: 'Trade-In',     cls: 'trade' };
+    case 'sell':       return { label: 'Selling',      cls: 'sell' };
+    case 'test-drive': return { label: 'Test Drive',   cls: 'testdrive' };
+    default:           return { label: 'Inquiry',      cls: 'other' };
+  }
+};
+
+// Format an ISO-ish ADF requestdate into the timeline's expected
+// `{ date: "Mon DD, YYYY", time: "h:MM AM/PM" }` shape.
+const formatAdfDate = (iso) => {
+  const d = iso ? new Date(iso) : new Date();
+  const dd = isNaN(d) ? new Date() : d;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h = dd.getHours();
+  const m = dd.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return {
+    date: `${months[dd.getMonth()]} ${dd.getDate()}, ${dd.getFullYear()}`,
+    time: `${h}:${String(m).padStart(2,'0')} ${ampm}`,
+    ts:   dd.getTime(),
+  };
+};
+
+// Build a map: contactId -> [webInquiryEvent, ...] from the full set of
+// lead-provider submissions. A submission can attach to multiple contacts
+// when phone/email matches more than one record.
+const buildWebInquiriesByContact = (leadProviders, customers, contactPropsMap) => {
+  const map = {};
+  if (!leadProviders || !leadProviders.length || !customers || !customers.length) return map;
+
+  // Index customers by phone digits (last-10) and lowercased email so we can
+  // match in O(1) regardless of contact count.
+  const phoneIndex = {};
+  const emailIndex = {};
+  customers.forEach(c => {
+    const pd = phoneDigits10(c.phone);
+    if (pd && pd.length === 10) {
+      if (!phoneIndex[pd]) phoneIndex[pd] = [];
+      phoneIndex[pd].push(c.id);
+    }
+    const propsEmail = ((contactPropsMap[c.id] && contactPropsMap[c.id].email) || '').trim().toLowerCase();
+    if (propsEmail) {
+      if (!emailIndex[propsEmail]) emailIndex[propsEmail] = [];
+      emailIndex[propsEmail].push(c.id);
+    }
+  });
+
+  leadProviders.forEach(prov => {
+    const subs = prov.submissions || [];
+    subs.forEach(sub => {
+      const lead = parseAdfXml(sub.raw);
+      if (!lead) return;
+
+      // Resolve matched contact ids — union of phone matches and email matches.
+      const matchIds = new Set();
+      const leadDigits = phoneDigits10(lead.customer.phone);
+      if (leadDigits && leadDigits.length === 10 && phoneIndex[leadDigits]) {
+        phoneIndex[leadDigits].forEach(id => matchIds.add(id));
+      }
+      const leadEmail = (lead.customer.email || '').trim().toLowerCase();
+      if (leadEmail && emailIndex[leadEmail]) {
+        emailIndex[leadEmail].forEach(id => matchIds.add(id));
+      }
+      if (matchIds.size === 0) return; // Unmatched → stays only in Lead Providers
+
+      const stamp = formatAdfDate(lead.requestdate || new Date(sub.receivedAt).toISOString());
+      const providerLabel = lead.providerName || prov.name;
+      const title = lead.vehicles.length === 1
+        ? `Web inquiry — ${[lead.vehicles[0].year, lead.vehicles[0].make, lead.vehicles[0].model].filter(Boolean).join(' ') || 'Vehicle'}`
+        : lead.vehicles.length > 1
+          ? `Web inquiry — ${lead.vehicles.length} vehicles`
+          : `Web inquiry from ${providerLabel}`;
+
+      const event = {
+        // Unique per (provider, submission, contact) so duplicates across
+        // matched contacts don't collide.
+        id: `wi_${prov.id}_${sub.id}`,
+        type: 'web_inquiry',
+        date: stamp.date,
+        time: stamp.time,
+        ts:   stamp.ts,
+        title,
+        subtitle: lead.comments || (lead.vehicles.length === 0 ? `Lead received from ${providerLabel}` : ''),
+        providerName: providerLabel,
+        providerEmail: sub.from || '',
+        vehicles: lead.vehicles,
+      };
+      matchIds.forEach(id => {
+        if (!map[id]) map[id] = [];
+        map[id].push(event);
+      });
+    });
+  });
+  return map;
+};
+
+const TouchPointsScreen = ({ leadProviders = [] } = {}) => {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(1);
-  const [collapsed, setCollapsed] = useState({ transactions:false, conversions:false, engagements:false, vehicles:false, associated:false });
+  const [collapsed, setCollapsed] = useState({ transactions:false, conversions:false, engagements:false, web_inquiries:false, vehicles:false, associated:false });
   const [vehiclesMap, setVehiclesMap]   = useState(INITIAL_VEHICLES);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [newVehicle, setNewVehicle] = useState({ vin:'', year:'', make:'', model:'', purchaseDate:'', lastServiceDate:'', tradeDate:'' });
@@ -5794,12 +6076,13 @@ const TouchPointsScreen = () => {
 
   // ── TouchPoint type filter (middle column) ───────────────────────────
   // All types start checked. Order matters for display.
-  const TP_FILTER_TYPES = ['sales','service_txn','service_appt','appointment','followup','phone_call','link_click','text_inbound','text_outbound'];
+  const TP_FILTER_TYPES = ['sales','service_txn','service_appt','appointment','followup','phone_call','link_click','web_inquiry','text_inbound','text_outbound'];
   // Grouped for the dropdown panel — uses the same buckets as the right column.
   const TP_FILTER_GROUPS = [
-    { label: 'Transactions', types: ['sales','service_txn'] },
-    { label: 'Conversions',  types: ['service_appt','appointment','followup','phone_call','link_click'] },
-    { label: 'Engagements',  types: ['text_inbound','text_outbound'] },
+    { label: 'Transactions',  types: ['sales','service_txn'] },
+    { label: 'Conversions',   types: ['service_appt','appointment','followup','phone_call','link_click'] },
+    { label: 'Web Inquiries', types: ['web_inquiry'] },
+    { label: 'Engagements',   types: ['text_inbound','text_outbound'] },
   ];
   const [typeFilter, setTypeFilter] = useState(() => {
     const s = {};
@@ -6058,7 +6341,27 @@ const TouchPointsScreen = () => {
     c.name.toLowerCase().includes(q) || c.phone.replace(/\D/g,'').includes(q.replace(/\D/g,'')) || c.phone.includes(q)
   );
   const selectedCustomer = customers.find(c => c.id === selectedId) || null;
-  const selectedTimeline = selectedCustomer ? selectedCustomer.timeline : [];
+
+  // Synthesize web_inquiry events from ADF submissions in leadProviders.
+  // Memoized on the lead providers + customers + contactPropsMap so it
+  // only re-runs when one of those actually changes.
+  const webInquiriesByContact = React.useMemo(
+    () => buildWebInquiriesByContact(leadProviders, customers, contactPropsMap),
+    [leadProviders, customers, contactPropsMap]
+  );
+
+  const baseTimeline = selectedCustomer ? selectedCustomer.timeline : [];
+  // Sort merged timeline newest-first using ts when available, otherwise
+  // fall back to Date.parse on the formatted date string.
+  const eventTs = (e) => {
+    if (typeof e.ts === 'number') return e.ts;
+    const d = Date.parse(`${e.date} ${e.time || ''}`);
+    return isNaN(d) ? 0 : d;
+  };
+  const selectedTimeline = React.useMemo(() => {
+    const extras = webInquiriesByContact[selectedId] || [];
+    return [...baseTimeline, ...extras].sort((a, b) => eventTs(b) - eventTs(a));
+  }, [baseTimeline, webInquiriesByContact, selectedId]);
   // Timeline shown in the middle column — respects the type filter chips.
   // Right-column counts/sums continue to use selectedTimeline so the totals
   // reflect the full contact activity regardless of which chips are active.
@@ -6282,6 +6585,44 @@ const TouchPointsScreen = () => {
                     <div className="tp-event-box">
                       <div className="tp-event-title">{evt.title}</div>
                       {evt.subtitle && <div className="tp-event-sub">{evt.subtitle}</div>}
+                      {evt.type === 'web_inquiry' && evt.providerEmail && (
+                        <div>
+                          <span className="tp-event-wi-from" title="Lead provider endpoint that received this submission">
+                            <Icon name="mail" size={10}/>
+                            <span>{evt.providerEmail}</span>
+                          </span>
+                        </div>
+                      )}
+                      {evt.type === 'web_inquiry' && evt.vehicles && evt.vehicles.length > 0 && (
+                        <div className="tp-event-wi-vehicles">
+                          {evt.vehicles.map((v, vi) => {
+                            const meta = adfVehicleInterestMeta(v.interest);
+                            const ymm = [v.year, v.make, v.model].filter(Boolean).join(' ') || 'Vehicle';
+                            const subBits = [];
+                            if (v.status) subBits.push(v.status === 'used' ? 'Used' : v.status === 'new' ? 'New' : v.status);
+                            if (v.trim)   subBits.push(v.trim);
+                            return (
+                              <div className="tp-event-wi-vehicle" key={vi}>
+                                <span className={`tp-event-wi-vehicle-interest ${meta.cls}`}>{meta.label}</span>
+                                <div className="tp-event-wi-vehicle-info">
+                                  <div className="tp-event-wi-vehicle-title">{ymm}</div>
+                                  {(subBits.length > 0 || v.vin) && (
+                                    <div className="tp-event-wi-vehicle-sub">
+                                      {subBits.join(' · ')}
+                                      {v.vin && (
+                                        <>
+                                          {subBits.length > 0 && ' · '}
+                                          <span className="tp-event-wi-vehicle-vin">{v.vin}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                       {evt.meta && (
                         <div className="tp-event-chips">
                           {evt.meta.map(m => (
@@ -6604,6 +6945,12 @@ const TouchPointsScreen = () => {
                     <span className="tp-summary-pill-value" style={{color:'#7E54D9'}}>{groupCount(['service_appt','appointment','followup','phone_call','link_click'])}</span>
                   </div>
                 </div>
+                <div className="tp-summary-pill teal">
+                  <div className="tp-summary-pill-row">
+                    <span className="tp-summary-pill-label" style={{color:'#0d9488'}}>Web Inquiries</span>
+                    <span className="tp-summary-pill-value" style={{color:'#0d9488'}}>{countFor('web_inquiry')}</span>
+                  </div>
+                </div>
                 <div className="tp-summary-pill citrine">
                   <div className="tp-summary-pill-row">
                     <span className="tp-summary-pill-label" style={{color:'#b8930b'}}>Engagements</span>
@@ -6671,6 +7018,30 @@ const TouchPointsScreen = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Web Inquiries group */}
+            <div>
+              <div className="tp-group-head" onClick={() => setCollapsed(s => ({...s, web_inquiries: !s.web_inquiries}))}>
+                <span className="tp-group-head-label">Web Inquiries</span>
+                <span style={{opacity:0.5, transform: collapsed.web_inquiries ? 'rotate(-90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
+                  <Icon name="chevronDown" size={13}/>
+                </span>
+              </div>
+              {!collapsed.web_inquiries && (
+                <div className="tp-group-body">
+                  <div className="tp-group-row">
+                    <div className="tp-group-row-main">
+                      <div className="tp-group-row-icon teal"><Icon name="globe" size={16}/></div>
+                      <div style={{minWidth:0}}>
+                        <div className="tp-group-row-title">Web Inquiry</div>
+                        <div className="tp-group-row-desc">ADF lead submissions</div>
+                      </div>
+                      <div className="tp-group-row-count" style={{color:'#0d9488', background:'rgba(13,148,136,0.13)'}}>{countFor('web_inquiry')}</div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -15171,7 +15542,7 @@ const App = () => {
       case 'home':        return <HomeScreen tweaks={tweaks}/>;
       case 'pipelines':   return <PipelinesScreen navigate={navigate} enabledIntegrations={enabledIntegrations} onEnableIntegration={handleEnableIntegration} leadProviders={leadProviders} onAddLeadProvider={handleAddLeadProvider} onUpdateLeadProvider={handleUpdateLeadProvider} onDeleteLeadProvider={handleDeleteLeadProvider} dealer={dealer}/>;
       case 'portfolio':   return <PortfolioScreen/>;
-      case 'touchpoints': return <TouchPointsScreen/>;
+      case 'touchpoints': return <TouchPointsScreen leadProviders={leadProviders}/>;
       case 'weave':       return <WeaveScreen/>;
       // ── TrafficGauge sub-screens ──
       case 'library': return <LibraryScreen navigate={navigate} tweaks={tweaks} savedReports={savedReports} userDashboards={userDashboards} onCreateDashboard={handleCreateDashboard} onDeleteReport={handleDeleteReport} onDeleteDashboard={handleDeleteDashboard} onEditReport={handleEditReport}/>;
