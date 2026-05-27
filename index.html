@@ -8149,10 +8149,13 @@ const NoteEditorModal = ({ mode, existingNote, contactName, onSave, onDelete, on
 const ContactCalendar = ({ timeline, calMonth, setCalMonth }) => {
   // Only these touchpoint types appear on the calendar.
   const CAL_TYPES = {
-    service_appt: { label:'Service Appointment', color:'#16a34a' },
-    appointment:  { label:'Sales Appointment',   color:'#5e10bc' },
-    followup:     { label:'Follow Up',           color:'#f59e0b' },
-    phone_call:   { label:'Phone Call',          color:'#0ea5e9' },
+    sales:        { label:'Sales Transaction',     color:'#80E55C' },
+    service_txn:  { label:'Service Transaction',   color:'#3db832' },
+    service_appt: { label:'Service Appointment',   color:'#16a34a' },
+    appointment:  { label:'Sales Appointment',     color:'#5e10bc' },
+    followup:     { label:'Follow Up',             color:'#f59e0b' },
+    phone_call:   { label:'Phone Call',            color:'#0ea5e9' },
+    web_inquiry:  { label:'Web Inquiry',           color:'#7E54D9' },
   };
 
   // Parse "May 5, 2026" style date strings into a real Date.
