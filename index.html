@@ -3185,15 +3185,15 @@
     margin-top: 6px;
     padding: 3px 8px;
     border-radius: 5px;
-    background: rgba(13,148,136,0.08);
-    border: 1px solid rgba(13,148,136,0.22);
-    color: #0d9488;
+    background: rgba(126,84,217,0.08);
+    border: 1px solid rgba(126,84,217,0.22);
+    color: #7E54D9;
     font-family: monospace;
     font-size: 10.5px;
     letter-spacing: 0.02em;
     font-weight: 600;
   }
-  [data-theme="dark"] .tp-event-wi-from { background: rgba(13,148,136,0.16); }
+  [data-theme="dark"] .tp-event-wi-from { background: rgba(126,84,217,0.16); }
   .tp-event-wi-vehicles {
     margin-top: 8px;
     display: flex;
@@ -4619,7 +4619,7 @@ const TP_TYPE = {
   'phone_call':    { label:'Phone Call',           icon:'phone',         color:'#7E54D9', bg:'rgba(126,84,217,0.13)' },
   'text_inbound':  { label:'Inbound Text',         icon:'msgIn',         color:'#F7E74B', bg:'rgba(247,231,75,0.12)' },
   'text_outbound': { label:'Outbound Text',        icon:'msgOut',        color:'#F7E74B', bg:'rgba(247,231,75,0.12)' },
-  'web_inquiry':   { label:'Web Inquiry',          icon:'globe',         color:'#0d9488', bg:'rgba(13,148,136,0.12)' },
+  'web_inquiry':   { label:'Web Inquiry',          icon:'globe',         color:'#7E54D9', bg:'rgba(126,84,217,0.13)' },
 };
 
 const CX_CUSTOMERS = [
@@ -6064,7 +6064,7 @@ const buildWebInquiriesByContact = (leadProviders, customers, contactPropsMap) =
 const TouchPointsScreen = ({ leadProviders = [] } = {}) => {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(1);
-  const [collapsed, setCollapsed] = useState({ transactions:false, conversions:false, engagements:false, web_inquiries:false, vehicles:false, associated:false });
+  const [collapsed, setCollapsed] = useState({ transactions:false, conversions:false, engagements:false, vehicles:false, associated:false });
   const [vehiclesMap, setVehiclesMap]   = useState(INITIAL_VEHICLES);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [newVehicle, setNewVehicle] = useState({ vin:'', year:'', make:'', model:'', purchaseDate:'', lastServiceDate:'', tradeDate:'' });
@@ -6080,8 +6080,7 @@ const TouchPointsScreen = ({ leadProviders = [] } = {}) => {
   // Grouped for the dropdown panel — uses the same buckets as the right column.
   const TP_FILTER_GROUPS = [
     { label: 'Transactions',  types: ['sales','service_txn'] },
-    { label: 'Conversions',   types: ['service_appt','appointment','followup','phone_call','link_click'] },
-    { label: 'Web Inquiries', types: ['web_inquiry'] },
+    { label: 'Conversions',   types: ['service_appt','appointment','followup','phone_call','link_click','web_inquiry'] },
     { label: 'Engagements',   types: ['text_inbound','text_outbound'] },
   ];
   const [typeFilter, setTypeFilter] = useState(() => {
@@ -6942,13 +6941,7 @@ const TouchPointsScreen = ({ leadProviders = [] } = {}) => {
                 <div className="tp-summary-pill purple">
                   <div className="tp-summary-pill-row">
                     <span className="tp-summary-pill-label" style={{color:'#7E54D9'}}>Conversions</span>
-                    <span className="tp-summary-pill-value" style={{color:'#7E54D9'}}>{groupCount(['service_appt','appointment','followup','phone_call','link_click'])}</span>
-                  </div>
-                </div>
-                <div className="tp-summary-pill teal">
-                  <div className="tp-summary-pill-row">
-                    <span className="tp-summary-pill-label" style={{color:'#0d9488'}}>Web Inquiries</span>
-                    <span className="tp-summary-pill-value" style={{color:'#0d9488'}}>{countFor('web_inquiry')}</span>
+                    <span className="tp-summary-pill-value" style={{color:'#7E54D9'}}>{groupCount(['service_appt','appointment','followup','phone_call','link_click','web_inquiry'])}</span>
                   </div>
                 </div>
                 <div className="tp-summary-pill citrine">
@@ -7006,6 +6999,7 @@ const TouchPointsScreen = ({ leadProviders = [] } = {}) => {
                     {key:'followup',     desc:'Agent follow-ups'},
                     {key:'phone_call',   desc:'Inbound & outbound'},
                     {key:'link_click',   desc:'Campaign links'},
+                    {key:'web_inquiry',  desc:'ADF lead submissions'},
                   ].map(({key,desc}) => (
                     <div className="tp-group-row" key={key}>
                       <div className="tp-group-row-main">
@@ -7018,30 +7012,6 @@ const TouchPointsScreen = ({ leadProviders = [] } = {}) => {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-            </div>
-
-            {/* Web Inquiries group */}
-            <div>
-              <div className="tp-group-head" onClick={() => setCollapsed(s => ({...s, web_inquiries: !s.web_inquiries}))}>
-                <span className="tp-group-head-label">Web Inquiries</span>
-                <span style={{opacity:0.5, transform: collapsed.web_inquiries ? 'rotate(-90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
-                  <Icon name="chevronDown" size={13}/>
-                </span>
-              </div>
-              {!collapsed.web_inquiries && (
-                <div className="tp-group-body">
-                  <div className="tp-group-row">
-                    <div className="tp-group-row-main">
-                      <div className="tp-group-row-icon teal"><Icon name="globe" size={16}/></div>
-                      <div style={{minWidth:0}}>
-                        <div className="tp-group-row-title">Web Inquiry</div>
-                        <div className="tp-group-row-desc">ADF lead submissions</div>
-                      </div>
-                      <div className="tp-group-row-count" style={{color:'#0d9488', background:'rgba(13,148,136,0.13)'}}>{countFor('web_inquiry')}</div>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
