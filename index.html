@@ -18,6 +18,11 @@
   html, body, #root { height: 100%; width: 100%; overflow: hidden; }
   body { font-family: 'Inter', sans-serif; background: var(--canvas-bg); color: var(--text-primary); }
 
+  /* Form elements have user-agent default colors that don't inherit. Force them
+     to inherit so SVG icons using currentColor (e.g. chevrons in collapsibles)
+     are visible in dark mode. */
+  button, input, select, textarea { color: inherit; font-family: inherit; }
+
   :root {
     /* Convergence Brand Fonts */
     --font-display: 'Rubik', sans-serif;
